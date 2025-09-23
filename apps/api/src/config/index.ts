@@ -1,17 +1,17 @@
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 
 dotenv.config();
 
 const config = {
   port: process.env.PORT || 3000,
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv: process.env.NODE_ENV || "development",
   jwt: {
-    secret: process.env.JWT_SECRET || 'your-secret-key',
-    expiresIn: process.env.JWT_EXPIRES_IN || '1d',
+    secret: process.env.JWT_SECRET || "your-secret-key",
+    expiresIn: process.env.JWT_EXPIRES_IN || "1d",
   },
   adminJwt: {
-    secret: process.env.ADMIN_JWT_SECRET || 'your-admin-secret-key',
-    expiresIn: process.env.ADMIN_JWT_EXPIRES_IN || '1d',
+    secret: process.env.ADMIN_JWT_SECRET || "your-admin-secret-key",
+    expiresIn: process.env.ADMIN_JWT_EXPIRES_IN || "1d",
   },
   rateLimiter: {
     windowMs: Number(process.env.RATE_LIMITER_WINDOW_MS) || 15 * 60 * 1000,

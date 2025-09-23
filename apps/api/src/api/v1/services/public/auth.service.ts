@@ -1,8 +1,7 @@
 import jwt, {SignOptions} from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import config from "../../config";
-import {IUser} from "../../interfaces";
-
+import {IUser} from "src/interfaces";
+import config from "../../../../config";
 // This is a mock user data store. Replace with a database in a real application.
 const users: IUser[] = [];
 
