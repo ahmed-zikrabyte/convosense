@@ -1,9 +1,7 @@
 import jwt, {SignOptions} from "jsonwebtoken";
-import bcrypt from "bcryptjs";
-import {IUser} from "src/interfaces";
+import User, { IUser } from "../../../../models/user.model";
 import config from "../../../../config";
-// This is a mock user data store. Replace with a database in a real application.
-const users: IUser[] = [];
+import AppError from "../../../../utils/AppError";
 
 const signToken = (id: string, role: "admin" | "client") => {
   const secret = role === "admin" ? config.adminJwt.secret : config.jwt.secret;
@@ -21,48 +19,43 @@ export const registerUser = async (userData: Partial<IUser>) => {
   const {name, email, password, role} = userData;
 
   if (!name || !email || !password || !role) {
-    throw new Error("Please provide all required fields");
+    throw new AppError("Please provide all required fields", 400);
   }
 
-  const hashedPassword = await bcrypt.hash(password, 12);
+  // Check if user already exists
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    throw new AppError("User with this email already exists", 400);
+  }
 
-  const newUser: IUser = {
-    id: `${users.length + 1}`,
+  // Create new user (password will be hashed by pre-save middleware)
+  const newUser = await User.create({
     name,
     email,
-    password: hashedPassword,
+    password,
     role,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  });
 
-  users.push(newUser);
+  const token = signToken(newUser._id, newUser.role);
 
-  const token = signToken(newUser.id, newUser.role);
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const {password: _, ...userWithoutPassword} = newUser;
-
-  return {user: userWithoutPassword, token};
+  return {user: newUser.toJSON(), token};
 };
 
 export const loginUser = async (credentials: Partial<IUser>) => {
   const {email, password} = credentials;
 
   if (!email || !password) {
-    throw new Error("Please provide email and password");
+    throw new AppError("Please provide email and password", 400);
   }
 
-  const user = users.find((u) => u.email === email);
+  // Find user and include password for comparison
+  const user = await User.findOne({ email }).select("+password");
 
-  if (!user || !(await bcrypt.compare(password, user.password!))) {
-    throw new Error("Incorrect email or password");
+  if (!user || !(await user.comparePassword(password))) {
+    throw new AppError("Incorrect email or password", 401);
   }
 
-  const token = signToken(user.id, user.role);
+  const token = signToken(user._id, user.role);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const {password: _, ...userWithoutPassword} = user;
-
-  return {user: userWithoutPassword, token};
+  return {user: user.toJSON(), token};
 };

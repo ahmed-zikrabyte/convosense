@@ -5,6 +5,7 @@ dotenv.config();
 const config = {
   port: process.env.PORT || 3000,
   nodeEnv: process.env.NODE_ENV || "development",
+  mongoURI: process.env.MONGO_URI || "mongodb://localhost:27017/convo-app",
   jwt: {
     secret: process.env.JWT_SECRET || "your-secret-key",
     expiresIn: process.env.JWT_EXPIRES_IN || "1d",
@@ -19,4 +20,12 @@ const config = {
   },
 };
 
+const allowedOrigins = [
+  "http://localhost:2000",
+  "http://localhost:2001",
+  "http://localhost:2002",
+  "http://localhost:2003",
+];
+
 export default config;
+export {allowedOrigins};
