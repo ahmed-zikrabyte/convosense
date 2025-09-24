@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, {Document, Schema} from "mongoose";
 import bcrypt from "bcryptjs";
 
 export interface IAdmin extends Document {
@@ -46,18 +46,20 @@ const adminSchema = new Schema<IAdmin>(
       default: "admin",
       required: [true, "Role is required"],
     },
-    permissions: [{
-      type: String,
-      enum: [
-        "read_users",
-        "write_users",
-        "delete_users",
-        "read_clients",
-        "write_clients",
-        "delete_clients",
-        "system_settings"
-      ]
-    }],
+    permissions: [
+      {
+        type: String,
+        enum: [
+          "read_users",
+          "write_users",
+          "delete_users",
+          "read_clients",
+          "write_clients",
+          "delete_clients",
+          "system_settings",
+        ],
+      },
+    ],
     isActive: {
       type: Boolean,
       default: true,
@@ -72,9 +74,9 @@ const adminSchema = new Schema<IAdmin>(
 );
 
 // Index for faster queries
-adminSchema.index({ email: 1 });
-adminSchema.index({ role: 1 });
-adminSchema.index({ isActive: 1 });
+adminSchema.index({email: 1});
+adminSchema.index({role: 1});
+adminSchema.index({isActive: 1});
 
 // Hash password before saving
 adminSchema.pre("save", async function (next) {
@@ -98,6 +100,7 @@ adminSchema.methods.toJSON = function () {
   return adminObject;
 };
 
-const Admin = mongoose.model<IAdmin>("Admin", adminSchema);
+export const ADMIN_DB_REF = "Admin";
+const Admin = mongoose.model<IAdmin>(ADMIN_DB_REF, adminSchema);
 
 export default Admin;

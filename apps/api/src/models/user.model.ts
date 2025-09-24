@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, {Document, Schema} from "mongoose";
 import bcrypt from "bcryptjs";
 
 export interface IUser extends Document {
@@ -50,8 +50,8 @@ const userSchema = new Schema<IUser>(
 );
 
 // Index for faster queries
-userSchema.index({ email: 1 });
-userSchema.index({ role: 1 });
+userSchema.index({email: 1});
+userSchema.index({role: 1});
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
@@ -75,6 +75,7 @@ userSchema.methods.toJSON = function () {
   return userObject;
 };
 
-const User = mongoose.model<IUser>("User", userSchema);
+export const USER_DB_REF = "users";
+const User = mongoose.model<IUser>(USER_DB_REF, userSchema);
 
 export default User;

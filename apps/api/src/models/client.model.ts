@@ -83,6 +83,7 @@ clientSchema.methods.toJSON = function () {
   return clientObject;
 };
 
-const Client = mongoose.model<IClient>("Client", clientSchema);
+export const CLIENT_DB_REF = "Client";
+const Client = mongoose.model<IClient>(CLIENT_DB_REF, clientSchema);
 
 export default Client;
