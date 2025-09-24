@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
-import api from "../../lib/axios";
+import api from "../../../lib/axios";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -34,7 +34,7 @@ export default function LoginPage() {
 
       // Store the JWT token
       localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.data.user));
+      localStorage.setItem("user", JSON.stringify(data.data.client));
 
       // Redirect to home page
       window.location.href = "/";
