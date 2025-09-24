@@ -1,5 +1,4 @@
 import mongoose, { Document, Schema } from "mongoose";
-import { CLIENT_DB_REF } from "./client.model";
 import { CAMPAIGN_DB_REF } from "./campaign.model";
 import { LEAD_DB_REF } from "./lead.model";
 

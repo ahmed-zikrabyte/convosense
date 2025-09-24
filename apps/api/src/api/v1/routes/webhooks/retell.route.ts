@@ -124,7 +124,19 @@ async function handleCallEnded(payload: RetellWebhookPayload) {
   const call = await Call.findOne({call_id: payload.call_id});
 
   if (call) {
-    call.status = payload.call_status;
+    // Map RetellAI status to our call status enum
+    const statusMap: { [key: string]: string } = {
+      "call_ended": "completed",
+      "call_failed": "failed",
+      "no_answer": "no_answer",
+      "busy": "busy",
+      "voicemail": "voicemail",
+      "answered": "completed"
+    };
+
+    const mappedStatus = statusMap[payload.call_status] || "completed";
+    call.status = mappedStatus as any;
+
     call.end_ts = payload.end_timestamp
       ? new Date(payload.end_timestamp)
       : new Date();

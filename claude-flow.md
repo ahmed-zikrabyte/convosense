@@ -36,18 +36,10 @@ A comprehensive step-by-step implementation plan for the RetellAI-powered voice 
 - [ ] Implement JWT token management with refresh tokens
 - [ ] Add role-based middleware for super_admin, admin, and client routes
 - [ ] Create protected route wrappers for frontend apps
-- [ ] Implement session management and token refresh logic
-
-### 2.2 API Routes Structure
-
-- [ ] Set up admin routes: `/api/v1/admin/clients`, `/api/v1/admin/phone-numbers`, `/api/v1/admin/reports`
-- [ ] Set up client routes: `/api/v1/client/campaigns`, `/api/v1/client/leads`, `/api/v1/client/calls`
-- [ ] Set up webhook routes: `/api/v1/webhooks/retell`
-- [ ] Add input validation middleware using Joi or similar
 
 ## Phase 3: Super Admin Dashboard
 
-### 3.1 Client Management
+### 3.1 Client Management [skip this step for last]
 
 - [ ] Create client listing page with search and filters
 - [ ] Build create/edit client form with credit allocation
