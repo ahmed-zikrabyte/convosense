@@ -9,9 +9,17 @@ export interface IClient extends Document {
   phone?: string;
   address?: string;
   isActive: boolean;
+  credits_total_minutes: number;
+  credits_reserved_minutes: number;
+  credits_consumed_minutes: number;
+  billing_rate: number;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
+  reserveCredits(minutes: number): Promise<boolean>;
+  consumeCredits(minutes: number): Promise<boolean>;
+  refundCredits(minutes: number): Promise<boolean>;
+  getAvailableCredits(): number;
 }
 
 const clientSchema = new Schema<IClient>(
@@ -51,6 +59,26 @@ const clientSchema = new Schema<IClient>(
       type: Boolean,
       default: true,
     },
+    credits_total_minutes: {
+      type: Number,
+      default: 0,
+      min: [0, "Total minutes cannot be negative"],
+    },
+    credits_reserved_minutes: {
+      type: Number,
+      default: 0,
+      min: [0, "Reserved minutes cannot be negative"],
+    },
+    credits_consumed_minutes: {
+      type: Number,
+      default: 0,
+      min: [0, "Consumed minutes cannot be negative"],
+    },
+    billing_rate: {
+      type: Number,
+      default: 0.10,
+      min: [0, "Billing rate cannot be negative"],
+    },
   },
   {
     timestamps: true,
@@ -74,6 +102,42 @@ clientSchema.methods.comparePassword = async function (
   candidatePassword: string
 ): Promise<boolean> {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Credit tracking methods
+clientSchema.methods.reserveCredits = async function (minutes: number): Promise<boolean> {
+  if (this.getAvailableCredits() < minutes) {
+    return false;
+  }
+
+  this.credits_reserved_minutes += minutes;
+  await this.save();
+  return true;
+};
+
+clientSchema.methods.consumeCredits = async function (minutes: number): Promise<boolean> {
+  if (this.credits_reserved_minutes < minutes) {
+    return false;
+  }
+
+  this.credits_reserved_minutes -= minutes;
+  this.credits_consumed_minutes += minutes;
+  await this.save();
+  return true;
+};
+
+clientSchema.methods.refundCredits = async function (minutes: number): Promise<boolean> {
+  if (this.credits_reserved_minutes < minutes) {
+    return false;
+  }
+
+  this.credits_reserved_minutes -= minutes;
+  await this.save();
+  return true;
+};
+
+clientSchema.methods.getAvailableCredits = function (): number {
+  return this.credits_total_minutes - this.credits_reserved_minutes - this.credits_consumed_minutes;
 };
 
 // Remove password from JSON output
