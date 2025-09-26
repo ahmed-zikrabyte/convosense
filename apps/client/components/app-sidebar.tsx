@@ -33,24 +33,6 @@ import {usePathname} from "next/navigation";
 import {cn} from "@workspace/ui/lib/utils";
 import Link from "next/link";
 
-const items = [
-  {
-    title: "Home",
-    url: "/",
-    icon: Home,
-  },
-  {
-    title: "Profile",
-    url: "/profile",
-    icon: User,
-  },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Settings,
-  },
-];
-
 export function AppSidebar() {
   const {user} = useAuth();
   const pathname = usePathname();
@@ -59,7 +41,7 @@ export function AppSidebar() {
   const sidebarItems = [
     {
       name: "Dashboard",
-      href: "/",
+      href: "/dashboard",
       icon: LayoutDashboard,
       description: "Overview & Analytics",
     },

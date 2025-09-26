@@ -4,6 +4,7 @@ import clientAuthRouter from './routes/client/auth.route';
 import adminAuthRouter from './routes/admin/auth.route';
 import userRouter from './routes/admin/user.route';
 import profileRouter from './routes/client/profile.route';
+import campaignRouter from './routes/client/campaign.route';
 import clientManagementRouter from './routes/admin/client-management.route';
 import phoneNumberManagementRouter from './routes/admin/phone-number-management.route';
 
@@ -21,5 +22,6 @@ mainRouter.use('/admin/users', userRouter);
 mainRouter.use('/admin/clients', clientManagementRouter);
 mainRouter.use('/admin/phone-numbers', phoneNumberManagementRouter);
 mainRouter.use('/client/profile', profileRouter);
+mainRouter.use('/client/campaigns', campaignRouter);
 
 export default mainRouter;

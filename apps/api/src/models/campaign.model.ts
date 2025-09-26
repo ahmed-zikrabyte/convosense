@@ -36,7 +36,6 @@ const campaignSchema = new Schema<ICampaign>(
   {
     campaignId: {
       type: String,
-      required: true,
       unique: true,
       index: true,
     },
