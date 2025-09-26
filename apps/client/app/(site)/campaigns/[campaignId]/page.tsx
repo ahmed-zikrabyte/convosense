@@ -1,16 +1,16 @@
 "use client";
 
 import React from "react";
-import { useParams, useRouter } from "next/navigation";
-import { useCampaign, useCampaignOperations } from "@/lib/hooks/use-campaigns";
-import { Button } from "@workspace/ui/components/button";
+import {useParams, useRouter} from "next/navigation";
+import {useCampaign, useCampaignOperations} from "@/lib/hooks/use-campaigns";
+import {Button} from "@workspace/ui/components/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
-import { Badge } from "@workspace/ui/components/badge";
+import {Badge} from "@workspace/ui/components/badge";
 import {
   ArrowLeft,
   Edit,
@@ -31,7 +31,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@workspace/ui/lib/utils";
+import {cn, isNil} from "@workspace/ui/lib/utils";
 
 const statusColors = {
   draft: "bg-gray-100 text-gray-800 border-gray-200",
@@ -54,7 +54,7 @@ export default function CampaignDetailPage() {
   const router = useRouter();
   const campaignId = params.campaignId as string;
 
-  const { campaign, loading, error, refetch } = useCampaign(campaignId);
+  const {campaign, loading, error, refetch} = useCampaign(campaignId);
   const {
     loading: operationsLoading,
     error: operationsError,
@@ -67,7 +67,9 @@ export default function CampaignDetailPage() {
     if (!campaign) return;
 
     const newStatus = campaign.status === "active" ? "paused" : "active";
-    const result = await updateCampaign(campaign.campaignId, { status: newStatus });
+    const result = await updateCampaign(campaign.campaignId, {
+      status: newStatus,
+    });
     if (result) {
       refetch();
     }
@@ -167,11 +169,15 @@ export default function CampaignDetailPage() {
             <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-2">
               <div className="flex items-center space-x-1">
                 <Calendar className="w-4 h-4" />
-                <span>Created {new Date(campaign.createdAt).toLocaleDateString()}</span>
+                <span>
+                  Created {new Date(campaign.createdAt).toLocaleDateString()}
+                </span>
               </div>
               <div className="flex items-center space-x-1">
                 <Clock className="w-4 h-4" />
-                <span>Updated {new Date(campaign.updatedAt).toLocaleDateString()}</span>
+                <span>
+                  Updated {new Date(campaign.updatedAt).toLocaleDateString()}
+                </span>
               </div>
             </div>
           </div>
@@ -316,7 +322,9 @@ export default function CampaignDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <div className="text-sm font-medium text-muted-foreground">Status</div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Status
+                </div>
                 <Badge className={cn("mt-1", statusColors[campaign.status])}>
                   <StatusIcon className="w-3 h-3 mr-1" />
                   <span className="capitalize">{campaign.status}</span>
@@ -324,29 +332,36 @@ export default function CampaignDetailPage() {
               </div>
 
               <div>
-                <div className="text-sm font-medium text-muted-foreground">Campaign ID</div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Campaign ID
+                </div>
                 <div className="text-sm font-mono bg-gray-100 px-2 py-1 rounded mt-1">
                   {campaign.campaignId}
                 </div>
               </div>
 
               <div>
-                <div className="text-sm font-medium text-muted-foreground">Created</div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Created
+                </div>
                 <div className="text-sm">
                   {new Date(campaign.createdAt).toLocaleString()}
                 </div>
               </div>
 
               <div>
-                <div className="text-sm font-medium text-muted-foreground">Last Updated</div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Last Updated
+                </div>
                 <div className="text-sm">
                   {new Date(campaign.updatedAt).toLocaleString()}
                 </div>
               </div>
-
-              {campaign.published_version && (
+              {!isNil(campaign.published_version) && (
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground">Published Version</div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Published Version
+                  </div>
                   <div className="text-sm">{campaign.published_version}</div>
                 </div>
               )}
@@ -363,47 +378,78 @@ export default function CampaignDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <div className="text-sm font-medium text-muted-foreground">Voice ID</div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Voice ID
+                </div>
                 <div className="text-sm">{campaign.voice_id}</div>
               </div>
 
               <div>
-                <div className="text-sm font-medium text-muted-foreground">Max Duration</div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Max Duration
+                </div>
                 <div className="text-sm">
-                  {Math.floor(campaign.settings.max_duration_seconds / 60)}m {campaign.settings.max_duration_seconds % 60}s
+                  {Math.floor(campaign.settings.max_duration_seconds / 60)}m{" "}
+                  {campaign.settings.max_duration_seconds % 60}s
                 </div>
               </div>
 
               <div>
-                <div className="text-sm font-medium text-muted-foreground">Retry Attempts</div>
-                <div className="text-sm">{campaign.settings.retry_attempts}</div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Retry Attempts
+                </div>
+                <div className="text-sm">
+                  {campaign.settings.retry_attempts}
+                </div>
               </div>
 
               <div>
-                <div className="text-sm font-medium text-muted-foreground">Retry Delay</div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Retry Delay
+                </div>
                 <div className="text-sm">
                   {Math.floor(campaign.settings.retry_delay_seconds / 3600)}h
                 </div>
               </div>
 
               <div className="space-y-2">
-                <div className="text-sm font-medium text-muted-foreground">Features</div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Features
+                </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <span>Voicemail Detection</span>
-                    <Badge variant={campaign.settings.enable_voicemail_detection ? "default" : "secondary"}>
-                      {campaign.settings.enable_voicemail_detection ? "Enabled" : "Disabled"}
+                    <Badge
+                      variant={
+                        campaign.settings.enable_voicemail_detection
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {campaign.settings.enable_voicemail_detection
+                        ? "Enabled"
+                        : "Disabled"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span>Ambient Sounds</span>
-                    <Badge variant={campaign.settings.enable_ambient_sounds ? "default" : "secondary"}>
-                      {campaign.settings.enable_ambient_sounds ? "Enabled" : "Disabled"}
+                    <Badge
+                      variant={
+                        campaign.settings.enable_ambient_sounds
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {campaign.settings.enable_ambient_sounds
+                        ? "Enabled"
+                        : "Disabled"}
                     </Badge>
                   </div>
                   {campaign.settings.enable_ambient_sounds && (
                     <div className="text-xs text-muted-foreground">
-                      Volume: {Math.round(campaign.settings.ambient_sound_volume * 100)}%
+                      Volume:{" "}
+                      {Math.round(campaign.settings.ambient_sound_volume * 100)}
+                      %
                     </div>
                   )}
                 </div>
@@ -417,7 +463,10 @@ export default function CampaignDetailPage() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Link href={`/campaigns/${campaign.campaignId}/edit`} className="block">
+              <Link
+                href={`/campaigns/${campaign.campaignId}/edit`}
+                className="block"
+              >
                 <Button variant="outline" className="w-full justify-start">
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Campaign
