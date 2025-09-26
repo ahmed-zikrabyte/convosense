@@ -20,6 +20,9 @@ export interface IPhoneNumber extends Document {
   purchased_at: Date;
   createdAt: Date;
   updatedAt: Date;
+  isAvailable(): boolean;
+  assignToClient(clientId: string): void;
+  unassign(): void;
 }
 
 const phoneNumberSchema = new Schema<IPhoneNumber>(

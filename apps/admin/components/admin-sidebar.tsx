@@ -12,6 +12,7 @@ import {
   UserCheck,
   FileText,
   Bell,
+  Phone,
 } from "lucide-react";
 
 import {
@@ -58,6 +59,12 @@ export function AdminSidebar() {
       description: "Manage Client Accounts",
     },
     {
+      name: "Phone Number Management",
+      href: "/phone-numbers",
+      icon: Phone,
+      description: "Manage Client Accounts",
+    },
+    {
       name: "Analytics",
       href: "/analytics",
       icon: BarChart3,
@@ -98,8 +105,8 @@ export function AdminSidebar() {
     },
   ];
 
-  const filteredItems = sidebarItems.filter(item =>
-    !item.adminOnly || user?.role === "super_admin"
+  const filteredItems = sidebarItems.filter(
+    (item) => !item.adminOnly || user?.role === "super_admin"
   );
 
   return (
@@ -109,7 +116,7 @@ export function AdminSidebar() {
           <h2 className="text-lg font-semibold">
             {open ? "Admin Panel" : "AP"}
           </h2>
-          {user && (
+          {user && open && (
             <div className="text-xs text-muted-foreground">
               {user.name} ({user.role})
             </div>
@@ -124,7 +131,8 @@ export function AdminSidebar() {
               {filteredItems.map((item) => {
                 const isActive =
                   pathname === item.href ||
-                  (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                  (item.href !== "/dashboard" &&
+                    pathname.startsWith(item.href));
                 return (
                   <Link key={item.name} href={item.href}>
                     <div

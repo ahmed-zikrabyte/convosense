@@ -4,6 +4,8 @@ import clientAuthRouter from './routes/client/auth.route';
 import adminAuthRouter from './routes/admin/auth.route';
 import userRouter from './routes/admin/user.route';
 import profileRouter from './routes/client/profile.route';
+import clientManagementRouter from './routes/admin/client-management.route';
+import phoneNumberManagementRouter from './routes/admin/phone-number-management.route';
 
 const mainRouter: Router = Router();
 
@@ -16,6 +18,8 @@ mainRouter.use('/admin/auth', adminAuthRouter);
 
 // Other routes
 mainRouter.use('/admin/users', userRouter);
+mainRouter.use('/admin/clients', clientManagementRouter);
+mainRouter.use('/admin/phone-numbers', phoneNumberManagementRouter);
 mainRouter.use('/client/profile', profileRouter);
 
 export default mainRouter;

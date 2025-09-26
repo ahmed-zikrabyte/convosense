@@ -1,24 +1,22 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { ThemeProvider as NextThemesProvider } from "next-themes"
-import { SidebarProvider } from "@workspace/ui/components/sidebar"
-import { AuthProvider } from "./auth-provider"
+import * as React from "react";
+import {ThemeProvider as NextThemesProvider} from "next-themes";
+import {SidebarProvider} from "@workspace/ui/components/sidebar";
+import {AuthProvider} from "./auth-provider";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({children}: {children: React.ReactNode}) {
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="system"
+      defaultTheme="light"
       enableSystem
       disableTransitionOnChange
       enableColorScheme
     >
       <AuthProvider>
-        <SidebarProvider>
-          {children}
-        </SidebarProvider>
+        <SidebarProvider>{children}</SidebarProvider>
       </AuthProvider>
     </NextThemesProvider>
-  )
+  );
 }
