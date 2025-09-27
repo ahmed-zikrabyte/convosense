@@ -21,10 +21,10 @@ const config = {
 };
 
 const allowedOrigins = [
-  "http://localhost:2000",
-  "http://localhost:2001",
-  "http://localhost:2002",
-  "http://localhost:2003",
+  "http://localhost:1000",
+  "http://localhost:1001",
+  "http://localhost:1002",
+  "http://localhost:1003",
 ];
 
 export default config;
