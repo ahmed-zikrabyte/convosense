@@ -13,6 +13,7 @@ import {
   FileText,
   Bell,
   Phone,
+  Bot,
 } from "lucide-react";
 
 import {
@@ -62,7 +63,13 @@ export function AdminSidebar() {
       name: "Phone Number Management",
       href: "/phone-numbers",
       icon: Phone,
-      description: "Manage Client Accounts",
+      description: "Manage Phone Numbers",
+    },
+    {
+      name: "Agent Management",
+      href: "/agents",
+      icon: Bot,
+      description: "Manage AI Agents",
     },
     {
       name: "Analytics",

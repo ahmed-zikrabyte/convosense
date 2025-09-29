@@ -346,6 +346,36 @@ export class RetellService {
     }
   }
 
+  async getLLM(llmId: string) {
+    try {
+      const response = await this.client.llm.retrieve(llmId);
+      return response;
+    } catch (error) {
+      console.error("Failed to get LLM:", error);
+      throw error;
+    }
+  }
+
+  async updateLLM(llmId: string, updateData: { general_prompt?: string }) {
+    try {
+      const response = await this.client.llm.update(llmId, updateData);
+      return response;
+    } catch (error) {
+      console.error("Failed to update LLM:", error);
+      throw error;
+    }
+  }
+
+  async getVoice(voiceId: string) {
+    try {
+      const response = await this.client.voice.retrieve(voiceId);
+      return response;
+    } catch (error) {
+      console.error("Failed to get voice:", error);
+      throw error;
+    }
+  }
+
   verifyWebhookSignature(
     payload: string,
     signature: string,

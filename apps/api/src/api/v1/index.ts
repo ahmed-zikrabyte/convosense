@@ -7,6 +7,7 @@ import profileRouter from './routes/client/profile.route';
 import campaignRouter from './routes/client/campaign.route';
 import clientManagementRouter from './routes/admin/client-management.route';
 import phoneNumberManagementRouter from './routes/admin/phone-number-management.route';
+import agentManagementRouter from './routes/admin/agent-management.route';
 
 const mainRouter: Router = Router();
 
@@ -21,6 +22,7 @@ mainRouter.use('/admin/auth', adminAuthRouter);
 mainRouter.use('/admin/users', userRouter);
 mainRouter.use('/admin/clients', clientManagementRouter);
 mainRouter.use('/admin/phone-numbers', phoneNumberManagementRouter);
+mainRouter.use('/admin/agents', agentManagementRouter);
 mainRouter.use('/client/profile', profileRouter);
 mainRouter.use('/client/campaigns', campaignRouter);
 
