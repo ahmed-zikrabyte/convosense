@@ -1,4 +1,4 @@
-import { Retell } from "retell-sdk";
+import {Retell} from "retell-sdk";
 
 export interface RetellKnowledgeBaseFile {
   type: "url" | "text" | "file";
@@ -50,22 +50,48 @@ export class RetellService {
 
   async createKnowledgeBase(request: RetellCreateKnowledgeBaseRequest) {
     try {
-      const response = await this.client.knowledgeBase.create({
+      console.log({
+        client: this.client,
         knowledge_base_name: request.knowledge_base_name,
         knowledge_base_files: request.knowledge_base_files,
       });
+      // const response = await this.client.knowledgeBase.create({
+      //   knowledge_base_name: request.knowledge_base_name,
+      //   knowledge_base_files: request.knowledge_base_files,
+      // });
+      const response = await this.client.knowledgeBase.create({
+        knowledge_base_name: "Sample KB1",
+        knowledge_base_texts: [
+          {
+            text: "Hello, how are you?",
+            title: "Sample Question",
+          },
+        ],
+        knowledge_base_urls: [
+          "https://www.retellai.com",
+          "https://docs.retellai.com",
+        ],
+      });
       return response;
     } catch (error) {
-      console.error("Failed to create knowledge base:", error);
+      console.error(
+        "@retell.service @63 Failed to create knowledge base:",
+        error
+      );
       throw error;
     }
   }
 
-  async updateKnowledgeBase(knowledgeBaseId: string, request: RetellCreateKnowledgeBaseRequest) {
+  async updateKnowledgeBase(
+    _knowledgeBaseId: string,
+    _request: RetellCreateKnowledgeBaseRequest
+  ) {
     try {
       // Note: Update method may not be available in current SDK version
       // This is a placeholder for future SDK updates
-      console.warn("Knowledge base update not available in current SDK version");
+      console.warn(
+        "Knowledge base update not available in current SDK version"
+      );
       return null;
     } catch (error) {
       console.error("Failed to update knowledge base:", error);
@@ -75,13 +101,33 @@ export class RetellService {
 
   async createAgent(request: RetellCreateAgentRequest) {
     try {
+      let responseEngine;
+
+      console.log({request});
+
+      if (request.llm_websocket_url) {
+        responseEngine = {
+          type: "custom-llm" as const,
+          llm_websocket_url: request.llm_websocket_url,
+        };
+      } else {
+        const llm = await this.createDefaultLLM(request);
+        responseEngine = {
+          type: "retell-llm" as const,
+          llm_id: llm.llm_id,
+        };
+      }
+
+      console.log({
+        agent_name: request.agent_name,
+        voice_id: request.voice_id,
+        response_engine: responseEngine,
+      });
+
       const response = await this.client.agent.create({
         agent_name: request.agent_name,
         voice_id: request.voice_id,
-        response_engine: {
-          type: "retell-llm",
-          llm_id: "default",
-        },
+        response_engine: responseEngine,
       });
       return response;
     } catch (error) {
@@ -90,14 +136,38 @@ export class RetellService {
     }
   }
 
-  async updateAgent(agentId: string, request: Partial<RetellCreateAgentRequest>) {
+  private async createDefaultLLM(request: RetellCreateAgentRequest) {
+    try {
+      const llmRequest = {
+        general_prompt:
+          request.system_prompt || "You are a helpful AI assistant.",
+        knowledge_base_ids: request.knowledge_base_id
+          ? [request.knowledge_base_id]
+          : [],
+      };
+
+      const llm = await this.client.llm.create(llmRequest);
+      return llm;
+    } catch (error) {
+      console.error("Failed to create default LLM:", error);
+      throw error;
+    }
+  }
+
+  async updateAgent(
+    agentId: string,
+    request: Partial<RetellCreateAgentRequest>
+  ) {
     try {
       const updateData: any = {};
       if (request.agent_name) updateData.agent_name = request.agent_name;
       if (request.voice_id) updateData.voice_id = request.voice_id;
-      if (request.system_prompt) updateData.system_prompt = request.system_prompt;
-      if (request.knowledge_base_id) updateData.knowledge_base_id = request.knowledge_base_id;
-      if (request.llm_websocket_url) updateData.llm_websocket_url = request.llm_websocket_url;
+      if (request.system_prompt)
+        updateData.system_prompt = request.system_prompt;
+      if (request.knowledge_base_id)
+        updateData.knowledge_base_id = request.knowledge_base_id;
+      if (request.llm_websocket_url)
+        updateData.llm_websocket_url = request.llm_websocket_url;
 
       const response = await this.client.agent.update(agentId, updateData);
       return response;
@@ -110,9 +180,9 @@ export class RetellService {
   async publishAgent(agentId: string) {
     try {
       // Publishing is typically handled by the SDK automatically
-      // Just return the agent details
+      // Just return the agent details with a version number
       const response = await this.client.agent.retrieve(agentId);
-      return response;
+      return {...response, version: 1};
     } catch (error) {
       console.error("Failed to publish agent:", error);
       throw error;
@@ -134,13 +204,21 @@ export class RetellService {
     }
   }
 
-  async updatePhoneNumber(phoneNumberId: string, request: Partial<RetellCreatePhoneNumberRequest>) {
+  async updatePhoneNumber(
+    phoneNumberId: string,
+    request: Partial<RetellCreatePhoneNumberRequest>
+  ) {
     try {
       const updateData: any = {};
-      if (request.inbound_agent_id) updateData.inbound_agent_id = request.inbound_agent_id;
-      if (request.outbound_agent_id) updateData.outbound_agent_id = request.outbound_agent_id;
+      if (request.inbound_agent_id)
+        updateData.inbound_agent_id = request.inbound_agent_id;
+      if (request.outbound_agent_id)
+        updateData.outbound_agent_id = request.outbound_agent_id;
 
-      const response = await this.client.phoneNumber.update(phoneNumberId, updateData);
+      const response = await this.client.phoneNumber.update(
+        phoneNumberId,
+        updateData
+      );
       return response;
     } catch (error) {
       console.error("Failed to update phone number:", error);
@@ -160,7 +238,7 @@ export class RetellService {
         });
         calls.push(call);
       }
-      return { calls };
+      return {calls};
     } catch (error) {
       console.error("Failed to create batch call:", error);
       throw error;
@@ -177,7 +255,7 @@ export class RetellService {
     }
   }
 
-  async listCalls(params?: { limit?: number }) {
+  async listCalls(params?: {limit?: number}) {
     try {
       const response = await this.client.call.list({
         limit: params?.limit,
@@ -211,7 +289,8 @@ export class RetellService {
 
   async getKnowledgeBase(knowledgeBaseId: string) {
     try {
-      const response = await this.client.knowledgeBase.retrieve(knowledgeBaseId);
+      const response =
+        await this.client.knowledgeBase.retrieve(knowledgeBaseId);
       return response;
     } catch (error) {
       console.error("Failed to get knowledge base:", error);
@@ -249,7 +328,29 @@ export class RetellService {
     }
   }
 
-  verifyWebhookSignature(payload: string, signature: string, timestamp: string): boolean {
+  async deleteAgent(agentId: string) {
+    try {
+      await this.client.agent.delete(agentId);
+    } catch (error) {
+      console.error("Failed to delete agent:", error);
+      throw error;
+    }
+  }
+
+  async deleteKnowledgeBase(knowledgeBaseId: string) {
+    try {
+      await this.client.knowledgeBase.delete(knowledgeBaseId);
+    } catch (error) {
+      console.error("Failed to delete knowledge base:", error);
+      throw error;
+    }
+  }
+
+  verifyWebhookSignature(
+    payload: string,
+    signature: string,
+    _timestamp: string
+  ): boolean {
     try {
       const secret = process.env.RETELL_WEBHOOK_SECRET;
       if (!secret) {

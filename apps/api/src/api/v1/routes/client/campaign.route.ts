@@ -9,6 +9,7 @@ import {
   duplicateCampaign,
   updateKnowledgeBase,
   getCampaignStats,
+  publishCampaign,
 } from "../../controllers/client/campaign.controller";
 
 const router: Router = Router();
@@ -26,5 +27,6 @@ router.delete("/:campaignId", deleteCampaign);
 // Campaign specific operations
 router.post("/:campaignId/duplicate", duplicateCampaign);
 router.patch("/:campaignId/knowledge-base", updateKnowledgeBase);
+router.post("/:campaignId/publish", publishCampaign);
 
 export default router;

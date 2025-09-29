@@ -69,7 +69,7 @@ export const updateCampaign = catchAsync(async (req: AuthenticatedRequest, res: 
     return res.status(400).json({ status: "error", message: "Campaign ID is required" });
   }
 
-  const campaign = await campaignService.updateCampaign(clientId, campaignId, updateData);
+  const campaign = await campaignService.updateCampaignWithRetell(clientId, campaignId, updateData);
 
   res.status(200).json({
     status: "success",
@@ -141,6 +141,24 @@ export const getCampaignStats = catchAsync(async (req: AuthenticatedRequest, res
     status: "success",
     data: {
       stats,
+    },
+  });
+});
+
+export const publishCampaign = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
+  const { id: clientId } = req.user!;
+  const { campaignId } = req.params;
+
+  if (!campaignId) {
+    return res.status(400).json({ status: "error", message: "Campaign ID is required" });
+  }
+
+  const campaign = await campaignService.publishCampaign(clientId, campaignId);
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      campaign,
     },
   });
 });
