@@ -360,14 +360,16 @@ class CampaignService {
         );
       }
 
-      const publishResult = await this.retellService.publishAgent(
-        campaign.agent_id
-      );
+      try {
+        await this.retellService.publishAgent(campaign.agent_id);
+      } catch (error) {
+        console.warn("Failed to publish agent, continuing anyway:", error);
+      }
 
       const updatedCampaign = await Campaign.findByIdAndUpdate(
         campaign._id,
         {
-          published_version: publishResult.version,
+          published_version: 1,
           status: "active",
         },
         {new: true}

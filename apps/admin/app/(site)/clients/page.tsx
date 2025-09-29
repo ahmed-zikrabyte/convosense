@@ -29,6 +29,7 @@ import {
   UserX,
   CreditCard,
   RefreshCw,
+  Bot,
 } from "lucide-react";
 import {formatDistanceToNow} from "date-fns";
 import {ClientForm} from "@/components/client-form";
@@ -83,6 +84,7 @@ export default function ClientsPage() {
   const [showClientForm, setShowClientForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [clientAgents, setClientAgents] = useState<Record<string, any[]>>({});
 
   // Fetch clients
   const fetchClients = async (page = 1) => {
@@ -110,12 +112,44 @@ export default function ClientsPage() {
       if (data.status === "success") {
         setClients(data.data.clients);
         setPagination(data.data.pagination);
+        // Fetch agents for each client
+        await fetchClientsAgents(data.data.clients);
       }
     } catch (error) {
       console.error("Error fetching clients:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch agents for clients
+  const fetchClientsAgents = async (clients: Client[]) => {
+    try {
+      const agentsMap: Record<string, any[]> = {};
+
+      for (const client of clients) {
+        try {
+          const response = await api.get(`/admin/agents/client/${client._id}`);
+          if (response.data.status === "success") {
+            agentsMap[client._id] = response.data.data.agents;
+          } else {
+            agentsMap[client._id] = [];
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch agents for client ${client._id}:`, error);
+          agentsMap[client._id] = [];
+        }
+      }
+
+      setClientAgents(agentsMap);
+    } catch (error) {
+      console.error("Error fetching client agents:", error);
+    }
+  };
+
+  const handleManageClientAgents = (clientId: string) => {
+    // Navigate to client-specific agent management
+    window.location.href = `/agents?assignedClientId=${clientId}`;
   };
 
   // Initial load
@@ -443,6 +477,7 @@ export default function ClientsPage() {
                     <TableHead>Client</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Credits</TableHead>
+                    <TableHead>Agents</TableHead>
                     <TableHead>Billing Rate</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -504,6 +539,30 @@ export default function ClientsPage() {
                             {formatCredits(client.credits_consumed_minutes)}
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {clientAgents[client._id] ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-1">
+                              <Bot className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm font-medium">
+                                {clientAgents[client._id]?.length || 0}
+                              </span>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleManageClientAgents(client._id)}
+                            >
+                              Manage
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Bot className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Loading...</span>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>${client.billing_rate}/min</TableCell>
                       <TableCell>

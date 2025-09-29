@@ -26,22 +26,36 @@ import {
   RefreshCw,
   Trash2,
   Eye,
+  Filter,
+  Users,
+  Upload,
+  UserX,
+  User,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import api from "@/lib/axios";
 import { AddAgentModal } from "@/components/add-agent-modal";
+import { AssignAgentModal } from "@/components/assign-agent-modal";
 
 interface Agent {
   _id: string;
   agentId: string;
   agentName: string;
   slug: string;
+  assignedClientId?: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  assignedAt?: string;
   createdAt: string;
   updatedAt: string;
+  isAvailable: boolean;
 }
 
 interface AgentFilters {
   search: string;
+  assigned?: boolean;
 }
 
 interface PaginationInfo {
@@ -67,6 +81,10 @@ export default function AgentsPage() {
   });
   const [showAddModal, setShowAddModal] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assigningAgent, setAssigningAgent] = useState<Agent | null>(null);
+  const [assignLoading, setAssignLoading] = useState(false);
 
   const fetchAgents = async (page = 1) => {
     try {
@@ -80,6 +98,7 @@ export default function AgentsPage() {
       });
 
       if (filters.search) queryParams.append("search", filters.search);
+      if (filters.assigned !== undefined) queryParams.append("assigned", filters.assigned.toString());
 
       const response = await api.get(`/admin/agents?${queryParams}`);
       const data = response.data;
@@ -115,6 +134,48 @@ export default function AgentsPage() {
       fetchAgents(pagination.currentPage);
     } catch (error) {
       console.error("Error deleting agent:", error);
+    }
+  };
+
+  const handlePublishAgent = async (agentId: string) => {
+    if (!confirm("Are you sure you want to publish this agent?")) return;
+
+    try {
+      await api.post(`/admin/agents/${agentId}/publish`);
+      fetchAgents(pagination.currentPage);
+    } catch (error) {
+      console.error("Error publishing agent:", error);
+    }
+  };
+
+  const handleUnassignAgent = async (agentId: string) => {
+    if (!confirm("Are you sure you want to unassign this agent?")) return;
+
+    try {
+      await api.post(`/admin/agents/${agentId}/unassign`);
+      fetchAgents(pagination.currentPage);
+    } catch (error) {
+      console.error("Error unassigning agent:", error);
+    }
+  };
+
+  const openAssignModal = (agent: Agent) => {
+    setAssigningAgent(agent);
+    setShowAssignModal(true);
+  };
+
+  const handleAssignAgent = async (agentId: string, clientId: string) => {
+    try {
+      setAssignLoading(true);
+      await api.post(`/admin/agents/${agentId}/assign`, { clientId });
+      setShowAssignModal(false);
+      setAssigningAgent(null);
+      fetchAgents(pagination.currentPage);
+    } catch (error) {
+      console.error("Error assigning agent:", error);
+      throw error;
+    } finally {
+      setAssignLoading(false);
     }
   };
 
@@ -179,8 +240,55 @@ export default function AgentsPage() {
                   className="pl-8 w-[250px]"
                 />
               </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
+              </Button>
             </div>
           </div>
+
+          {showFilters && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 border rounded-lg bg-muted/50">
+              <div>
+                <label className="text-sm font-medium mb-1 block">
+                  Assignment Status
+                </label>
+                <select
+                  className="w-full p-2 border rounded-md"
+                  value={
+                    filters.assigned === undefined
+                      ? ""
+                      : filters.assigned.toString()
+                  }
+                  onChange={(e) =>
+                    setFilters({
+                      ...filters,
+                      assigned:
+                        e.target.value === ""
+                          ? undefined
+                          : e.target.value === "true",
+                    })
+                  }
+                >
+                  <option value="">All Agents</option>
+                  <option value="true">Assigned</option>
+                  <option value="false">Available</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setFilters({ search: "" })}
+                  className="w-full"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -196,6 +304,7 @@ export default function AgentsPage() {
                     <TableHead>Agent</TableHead>
                     <TableHead>Agent ID</TableHead>
                     <TableHead>Slug</TableHead>
+                    <TableHead>Assignment</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -220,6 +329,29 @@ export default function AgentsPage() {
                         <Badge variant="outline">{agent.slug}</Badge>
                       </TableCell>
                       <TableCell>
+                        {agent.assignedClientId ? (
+                          <div>
+                            <div className="font-medium text-sm">
+                              {agent.assignedClientId.name}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {agent.assignedClientId.email}
+                            </div>
+                            {agent.assignedAt && (
+                              <div className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(new Date(agent.assignedAt), {
+                                  addSuffix: true,
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            Available
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         {formatDistanceToNow(new Date(agent.createdAt), {
                           addSuffix: true,
                         })}
@@ -233,6 +365,30 @@ export default function AgentsPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePublishAgent(agent.agentId)}
+                          >
+                            <Upload className="h-4 w-4" />
+                          </Button>
+                          {agent.assignedClientId ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUnassignAgent(agent._id)}
+                            >
+                              <UserX className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openAssignModal(agent)}
+                            >
+                              <User className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="outline"
@@ -292,6 +448,17 @@ export default function AgentsPage() {
         onClose={() => setShowAddModal(false)}
         onSubmit={handleAddAgent}
         loading={modalLoading}
+      />
+
+      <AssignAgentModal
+        isOpen={showAssignModal}
+        onClose={() => {
+          setShowAssignModal(false);
+          setAssigningAgent(null);
+        }}
+        onSubmit={handleAssignAgent}
+        agent={assigningAgent}
+        loading={assignLoading}
       />
     </div>
   );

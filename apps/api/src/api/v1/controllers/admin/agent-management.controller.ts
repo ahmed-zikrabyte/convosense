@@ -8,12 +8,16 @@ export const getAllAgents = catchAsync(async (req: Request, res: Response) => {
     page = 1,
     limit = 10,
     search,
+    assigned,
+    assignedClientId,
     sortBy = "createdAt",
     sortOrder = "desc"
   } = req.query;
 
   const filters = {
-    search: search as string
+    search: search as string,
+    assigned: assigned !== undefined ? assigned === "true" : undefined,
+    assignedClientId: assignedClientId as string
   };
 
   const pagination = {
@@ -62,7 +66,7 @@ export const getRetellAgentDetails = catchAsync(async (req: Request, res: Respon
 });
 
 export const createAgent = catchAsync(async (req: Request, res: Response) => {
-  const { agentId, agentName } = req.body;
+  const { agentId, agentName, assignedClientId } = req.body;
 
   if (!agentId || !agentName) {
     throw new AppError("Agent ID and agent name are required", 400);
@@ -70,7 +74,8 @@ export const createAgent = catchAsync(async (req: Request, res: Response) => {
 
   const agentData = {
     agentId,
-    agentName
+    agentName,
+    assignedClientId
   };
 
   const agent = await agentManagementService.createAgent(agentData);
@@ -130,6 +135,83 @@ export const getVoiceDetails = catchAsync(async (req: Request, res: Response) =>
   res.status(200).json({
     status: "success",
     data: { voice: voiceDetails }
+  });
+});
+
+export const publishAgent = catchAsync(async (req: Request, res: Response) => {
+  const { agentId } = req.params;
+
+  if (!agentId) {
+    throw new AppError("Agent ID is required", 400);
+  }
+
+  const result = await agentManagementService.publishAgent(agentId);
+
+  res.status(200).json({
+    status: "success",
+    message: "Agent published successfully",
+    data: { agent: result }
+  });
+});
+
+export const assignAgent = catchAsync(async (req: Request, res: Response) => {
+  const { agentId } = req.params;
+  const { clientId } = req.body;
+
+  if (!agentId) {
+    throw new AppError("Agent ID is required", 400);
+  }
+
+  if (!clientId) {
+    throw new AppError("Client ID is required", 400);
+  }
+
+  const result = await agentManagementService.assignAgentToClient(agentId, clientId);
+
+  res.status(200).json({
+    status: "success",
+    message: "Agent assigned successfully",
+    data: { agent: result }
+  });
+});
+
+export const unassignAgent = catchAsync(async (req: Request, res: Response) => {
+  const { agentId } = req.params;
+
+  if (!agentId) {
+    throw new AppError("Agent ID is required", 400);
+  }
+
+  const agent = await agentManagementService.unassignAgent(agentId);
+
+  res.status(200).json({
+    status: "success",
+    message: "Agent unassigned successfully",
+    data: { agent }
+  });
+});
+
+export const getAvailableAgents = catchAsync(async (req: Request, res: Response) => {
+  const agents = await agentManagementService.getAvailableAgents();
+
+  res.status(200).json({
+    status: "success",
+    data: { agents }
+  });
+});
+
+export const getClientAgents = catchAsync(async (req: Request, res: Response) => {
+  const { clientId } = req.params;
+
+  if (!clientId) {
+    throw new AppError("Client ID is required", 400);
+  }
+
+  const agents = await agentManagementService.getClientAgents(clientId);
+
+  res.status(200).json({
+    status: "success",
+    data: { agents }
   });
 });
 

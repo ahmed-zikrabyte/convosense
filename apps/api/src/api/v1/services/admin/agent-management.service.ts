@@ -1,14 +1,18 @@
 import Agent, { IAgent } from "../../../../models/agent.model";
+import Client from "../../../../models/client.model";
 import AppError from "../../../../utils/AppError";
 import RetellService from "../retell/retell.service";
 
 export interface AgentFilters {
   search?: string;
+  assigned?: boolean;
+  assignedClientId?: string;
 }
 
 export interface AgentCreateData {
   agentId: string;
   agentName: string;
+  assignedClientId?: string;
 }
 
 export interface PaginationOptions {
@@ -97,12 +101,25 @@ class AgentManagementService {
       ];
     }
 
+    if (filters.assigned !== undefined) {
+      if (filters.assigned) {
+        query.assignedClientId = { $exists: true, $ne: null };
+      } else {
+        query.assignedClientId = { $exists: false };
+      }
+    }
+
+    if (filters.assignedClientId) {
+      query.assignedClientId = filters.assignedClientId;
+    }
+
     const { page, limit, sortBy = "createdAt", sortOrder = "desc" } = pagination;
     const skip = (page - 1) * limit;
     const sort: Record<string, 1 | -1> = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
 
     const [agents, totalCount] = await Promise.all([
       Agent.find(query)
+        .populate("assignedClientId", "name email")
         .sort(sort)
         .skip(skip)
         .limit(limit)
@@ -111,7 +128,10 @@ class AgentManagementService {
     ]);
 
     return {
-      agents,
+      agents: agents.map(agent => ({
+        ...agent,
+        isAvailable: !agent.assignedClientId
+      })),
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),
@@ -174,9 +194,18 @@ class AgentManagementService {
       throw new AppError("Invalid agent ID or agent not found in Retell", 400);
     }
 
+    if (agentData.assignedClientId) {
+      const client = await Client.findById(agentData.assignedClientId);
+      if (!client) {
+        throw new AppError("Assigned client not found", 400);
+      }
+    }
+
     const agent = new Agent({
       agentId: agentData.agentId,
-      agentName: agentData.agentName
+      agentName: agentData.agentName,
+      assignedClientId: agentData.assignedClientId,
+      assignedAt: agentData.assignedClientId ? new Date() : undefined
     });
 
     await agent.save();
@@ -215,11 +244,105 @@ class AgentManagementService {
     }
   }
 
-  async getAgentStats() {
-    const totalAgents = await Agent.countDocuments();
+  async publishAgent(agentId: string): Promise<any> {
+    try {
+      // First check if agent exists in our database
+      const agent = await Agent.findOne({ agentId });
+      if (!agent) {
+        throw new AppError("Agent not found in database", 404);
+      }
+
+      const response = await this.retellService.publishAgent(agentId);
+      return response;
+    } catch (error) {
+      console.error("Failed to publish agent:", error);
+      throw new AppError("Failed to publish agent", 500);
+    }
+  }
+
+  async assignAgentToClient(agentDbId: string, clientId: string) {
+    const [agent, client] = await Promise.all([
+      Agent.findById(agentDbId),
+      Client.findById(clientId)
+    ]);
+
+    if (!agent) {
+      throw new AppError("Agent not found", 404);
+    }
+
+    if (!client) {
+      throw new AppError("Client not found", 404);
+    }
+
+    if (agent.assignedClientId) {
+      throw new AppError("Agent is already assigned to a client", 400);
+    }
+
+    agent.assignToClient(clientId);
+    await agent.save();
 
     return {
-      totalAgents
+      ...agent.toJSON(),
+      assignedClient: {
+        _id: client._id,
+        name: client.name,
+        email: client.email
+      }
+    };
+  }
+
+  async unassignAgent(agentDbId: string) {
+    const agent = await Agent.findById(agentDbId);
+    if (!agent) {
+      throw new AppError("Agent not found", 404);
+    }
+
+    if (!agent.assignedClientId) {
+      throw new AppError("Agent is not assigned to any client", 400);
+    }
+
+    agent.unassign();
+    await agent.save();
+
+    return agent.toJSON();
+  }
+
+  async getAvailableAgents() {
+    const agents = await Agent.find({
+      assignedClientId: { $exists: false }
+    }).sort({ createdAt: -1 });
+
+    return agents;
+  }
+
+  async getClientAgents(clientId: string) {
+    const client = await Client.findById(clientId);
+    if (!client) {
+      throw new AppError("Client not found", 404);
+    }
+
+    const agents = await Agent.find({
+      assignedClientId: clientId
+    }).sort({ assignedAt: -1 });
+
+    return agents;
+  }
+
+  async getAgentStats() {
+    const [
+      totalAgents,
+      assignedAgents,
+      availableAgents
+    ] = await Promise.all([
+      Agent.countDocuments(),
+      Agent.countDocuments({ assignedClientId: { $exists: true, $ne: null } }),
+      Agent.countDocuments({ assignedClientId: { $exists: false } })
+    ]);
+
+    return {
+      totalAgents,
+      assignedAgents,
+      availableAgents
     };
   }
 }

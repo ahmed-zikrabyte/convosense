@@ -179,10 +179,8 @@ export class RetellService {
 
   async publishAgent(agentId: string) {
     try {
-      // Publishing is typically handled by the SDK automatically
-      // Just return the agent details with a version number
-      const response = await this.client.agent.retrieve(agentId);
-      return {...response, version: 1};
+      const response = await this.client.agent.publish(agentId);
+      return response;
     } catch (error) {
       console.error("Failed to publish agent:", error);
       throw error;
@@ -375,6 +373,7 @@ export class RetellService {
       throw error;
     }
   }
+
 
   verifyWebhookSignature(
     payload: string,

@@ -1,12 +1,18 @@
 import mongoose, { Document, Schema } from "mongoose";
+import { CLIENT_DB_REF } from "./client.model";
 
 export interface IAgent extends Document {
   _id: string;
   agentId: string;
   agentName: string;
   slug: string;
+  assignedClientId?: string;
+  assignedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  isAvailable(): boolean;
+  assignToClient(clientId: string): void;
+  unassign(): void;
 }
 
 const agentSchema = new Schema<IAgent>(
@@ -28,6 +34,14 @@ const agentSchema = new Schema<IAgent>(
       unique: true,
       index: true,
     },
+    assignedClientId: {
+      type: String,
+      ref: CLIENT_DB_REF,
+      index: true,
+    },
+    assignedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
@@ -35,6 +49,7 @@ const agentSchema = new Schema<IAgent>(
 );
 
 agentSchema.index({ createdAt: -1 });
+agentSchema.index({ assignedClientId: 1, assignedAt: -1 });
 
 agentSchema.pre("save", async function (next) {
   if (!this.slug) {
@@ -48,6 +63,20 @@ agentSchema.pre("save", async function (next) {
   }
   next();
 });
+
+agentSchema.methods.isAvailable = function(): boolean {
+  return !this.assignedClientId;
+};
+
+agentSchema.methods.assignToClient = function(clientId: string): void {
+  this.assignedClientId = clientId;
+  this.assignedAt = new Date();
+};
+
+agentSchema.methods.unassign = function(): void {
+  this.assignedClientId = undefined;
+  this.assignedAt = undefined;
+};
 
 export const AGENT_DB_REF = "Agent";
 const Agent = mongoose.model<IAgent>(AGENT_DB_REF, agentSchema);
