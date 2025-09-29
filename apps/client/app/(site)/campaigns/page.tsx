@@ -1,17 +1,31 @@
 "use client";
 
-import React, {useState, useMemo} from "react";
-import { useCampaigns, useCampaignStats, useCampaignOperations } from "@/lib/hooks/use-campaigns";
+import React, { useState, useMemo } from "react";
+import {
+  useCampaigns,
+  useCampaignStats,
+  useCampaignOperations,
+} from "@/lib/hooks/use-campaigns";
 import { Campaign } from "@/lib/api/campaigns";
-import {Button} from "@workspace/ui/components/button";
+import { Button } from "@workspace/ui/components/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
-import {Badge} from "@workspace/ui/components/badge";
-import {Input} from "@workspace/ui/components/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@workspace/ui/components/alert-dialog";
+import { Badge } from "@workspace/ui/components/badge";
+import { Input } from "@workspace/ui/components/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +49,7 @@ import {
   Archive,
 } from "lucide-react";
 import Link from "next/link";
-import {cn} from "@workspace/ui/lib/utils";
+import { cn } from "@workspace/ui/lib/utils";
 
 const statusColors = {
   draft: "bg-gray-100 text-gray-800 border-gray-200",
@@ -56,11 +70,16 @@ const statusIcons = {
 export default function CampaignsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("");
+  const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
+  const [campaignToDelete, setCampaignToDelete] = useState<string | null>(null);
 
-  const campaignFilters = useMemo(() => ({
-    search: searchTerm || undefined,
-    status: filterStatus || undefined,
-  }), [searchTerm, filterStatus]);
+  const campaignFilters = useMemo(
+    () => ({
+      search: searchTerm || undefined,
+      status: filterStatus || undefined,
+    }),
+    [searchTerm, filterStatus]
+  );
 
   const {
     campaigns,
@@ -94,13 +113,20 @@ export default function CampaignsPage() {
     }
   };
 
-  const handleDelete = async (campaignId: string) => {
-    if (window.confirm("Are you sure you want to delete this campaign?")) {
-      const result = await deleteCampaign(campaignId);
+  const handleDelete = (campaignId: string) => {
+    setCampaignToDelete(campaignId);
+    setDeleteAlertOpen(true);
+  };
+
+  const performDelete = async () => {
+    if (campaignToDelete) {
+      const result = await deleteCampaign(campaignToDelete);
       if (result) {
         refetchCampaigns();
         refetchStats();
       }
+      setCampaignToDelete(null);
+      setDeleteAlertOpen(false);
     }
   };
 
@@ -143,10 +169,12 @@ export default function CampaignsPage() {
             <div className="text-red-500 mb-4">
               Error loading campaigns: {campaignsError || statsError}
             </div>
-            <Button onClick={() => {
-              refetchCampaigns();
-              refetchStats();
-            }}>
+            <Button
+              onClick={() => {
+                refetchCampaigns();
+                refetchStats();
+              }}
+            >
               Try Again
             </Button>
           </CardContent>
@@ -177,9 +205,7 @@ export default function CampaignsPage() {
       {operationsError && (
         <Card className="border-red-200">
           <CardContent className="py-4">
-            <div className="text-red-600 text-sm">
-              {operationsError}
-            </div>
+            <div className="text-red-600 text-sm">{operationsError}</div>
           </CardContent>
         </Card>
       )}
@@ -294,7 +320,10 @@ export default function CampaignsPage() {
           campaigns.map((campaign: Campaign) => {
             const StatusIcon = statusIcons[campaign.status];
             return (
-              <Card key={campaign._id} className={operationsLoading ? "opacity-50" : ""}>
+              <Card
+                key={campaign._id}
+                className={operationsLoading ? "opacity-50" : ""}
+              >
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -326,7 +355,11 @@ export default function CampaignsPage() {
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" disabled={operationsLoading}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={operationsLoading}
+                          >
                             <MoreHorizontal className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -337,7 +370,9 @@ export default function CampaignsPage() {
                               View Details
                             </DropdownMenuItem>
                           </Link>
-                          <Link href={`/campaigns/${campaign.campaignId}/edit`}>
+                          <Link
+                            href={`/campaigns/${campaign.campaignId}/edit`}
+                          >
                             <DropdownMenuItem>
                               <Edit className="w-4 h-4 mr-2" />
                               Edit
@@ -395,6 +430,26 @@ export default function CampaignsPage() {
           })
         )}
       </div>
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Are you sure you want to delete this campaign?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone and the campaign data will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setCampaignToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={performDelete} disabled={operationsLoading}>
+              {operationsLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

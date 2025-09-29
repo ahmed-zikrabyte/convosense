@@ -16,6 +16,16 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@workspace/ui/components/alert-dialog";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -85,6 +95,11 @@ export default function AgentsPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assigningAgent, setAssigningAgent] = useState<Agent | null>(null);
   const [assignLoading, setAssignLoading] = useState(false);
+  const [dialog, setDialog] = useState<{
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const fetchAgents = async (page = 1) => {
     try {
@@ -98,7 +113,8 @@ export default function AgentsPage() {
       });
 
       if (filters.search) queryParams.append("search", filters.search);
-      if (filters.assigned !== undefined) queryParams.append("assigned", filters.assigned.toString());
+      if (filters.assigned !== undefined)
+        queryParams.append("assigned", filters.assigned.toString());
 
       const response = await api.get(`/admin/agents?${queryParams}`);
       const data = response.data;
@@ -126,37 +142,49 @@ export default function AgentsPage() {
     return () => clearTimeout(debounceTimer);
   }, [filters]);
 
-  const handleDeleteAgent = async (agentId: string) => {
-    if (!confirm("Are you sure you want to delete this agent?")) return;
-
-    try {
-      await api.delete(`/admin/agents/${agentId}`);
-      fetchAgents(pagination.currentPage);
-    } catch (error) {
-      console.error("Error deleting agent:", error);
-    }
+  const handleDeleteAgent = (agentId: string) => {
+    setDialog({
+      title: "Are you sure you want to delete this agent?",
+      description: "This action cannot be undone and will delete the agent.",
+      onConfirm: async () => {
+        try {
+          await api.delete(`/admin/agents/${agentId}`);
+          fetchAgents(pagination.currentPage);
+        } catch (error) {
+          console.error("Error deleting agent:", error);
+        }
+      },
+    });
   };
 
-  const handlePublishAgent = async (agentId: string) => {
-    if (!confirm("Are you sure you want to publish this agent?")) return;
-
-    try {
-      await api.post(`/admin/agents/${agentId}/publish`);
-      fetchAgents(pagination.currentPage);
-    } catch (error) {
-      console.error("Error publishing agent:", error);
-    }
+  const handlePublishAgent = (agentId: string) => {
+    setDialog({
+      title: "Are you sure you want to publish this agent?",
+      description: "This will make the agent available for use.",
+      onConfirm: async () => {
+        try {
+          await api.post(`/admin/agents/${agentId}/publish`);
+          fetchAgents(pagination.currentPage);
+        } catch (error) {
+          console.error("Error publishing agent:", error);
+        }
+      },
+    });
   };
 
-  const handleUnassignAgent = async (agentId: string) => {
-    if (!confirm("Are you sure you want to unassign this agent?")) return;
-
-    try {
-      await api.post(`/admin/agents/${agentId}/unassign`);
-      fetchAgents(pagination.currentPage);
-    } catch (error) {
-      console.error("Error unassigning agent:", error);
-    }
+  const handleUnassignAgent = (agentId: string) => {
+    setDialog({
+      title: "Are you sure you want to unassign this agent?",
+      description: "The agent will become available for other clients.",
+      onConfirm: async () => {
+        try {
+          await api.post(`/admin/agents/${agentId}/unassign`);
+          fetchAgents(pagination.currentPage);
+        } catch (error) {
+          console.error("Error unassigning agent:", error);
+        }
+      },
+    });
   };
 
   const openAssignModal = (agent: Agent) => {
@@ -179,7 +207,10 @@ export default function AgentsPage() {
     }
   };
 
-  const handleAddAgent = async (agentData: { agentId: string; agentName: string }) => {
+  const handleAddAgent = async (agentData: {
+    agentId: string;
+    agentName: string;
+  }) => {
     try {
       setModalLoading(true);
       await api.post("/admin/agents", agentData);
@@ -339,14 +370,20 @@ export default function AgentsPage() {
                             </div>
                             {agent.assignedAt && (
                               <div className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(agent.assignedAt), {
-                                  addSuffix: true,
-                                })}
+                                {formatDistanceToNow(
+                                  new Date(agent.assignedAt),
+                                  {
+                                    addSuffix: true,
+                                  }
+                                )}
                               </div>
                             )}
                           </div>
                         ) : (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          <Badge
+                            variant="outline"
+                            className="bg-green-50 text-green-700 border-green-200"
+                          >
                             Available
                           </Badge>
                         )}
@@ -361,7 +398,9 @@ export default function AgentsPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => window.location.href = `/agents/${agent._id}`}
+                            onClick={() =>
+                              (window.location.href = `/agents/${agent._id}`)
+                            }
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -405,7 +444,9 @@ export default function AgentsPage() {
 
               {agents.length === 0 && !loading && (
                 <div className="text-center py-8">
-                  <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <Bot
+                    className="h-12 w-12 text-muted-foreground mx-auto mb-4"
+                  />
                   <p className="text-muted-foreground">
                     No agents found. Add your first agent to get started.
                   </p>
@@ -460,6 +501,25 @@ export default function AgentsPage() {
         agent={assigningAgent}
         loading={assignLoading}
       />
+      <AlertDialog open={!!dialog} onOpenChange={() => setDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{dialog?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{dialog?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                dialog?.onConfirm();
+                setDialog(null);
+              }}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

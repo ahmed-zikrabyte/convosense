@@ -1,6 +1,6 @@
 "use client";
 
-import React, {useState, useEffect} from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -16,9 +16,19 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import {Badge} from "@workspace/ui/components/badge";
-import {Button} from "@workspace/ui/components/button";
-import {Input} from "@workspace/ui/components/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@workspace/ui/components/alert-dialog";
+import { Badge } from "@workspace/ui/components/badge";
+import { Button } from "@workspace/ui/components/button";
+import { Input } from "@workspace/ui/components/input";
 import {
   Plus,
   Search,
@@ -32,9 +42,9 @@ import {
   RefreshCw,
   ShoppingCart,
 } from "lucide-react";
-import {formatDistanceToNow} from "date-fns";
-import {PhoneNumberForm} from "@/components/phone-number-form";
-import {AssignmentDialog} from "@/components/assignment-dialog";
+import { formatDistanceToNow } from "date-fns";
+import { PhoneNumberForm } from "@/components/phone-number-form";
+import { AssignmentDialog } from "@/components/assignment-dialog";
 import api from "@/lib/axios";
 
 interface PhoneNumber {
@@ -91,9 +101,7 @@ export default function PhoneNumbersPage() {
     hasNextPage: false,
     hasPrevPage: false,
   });
-  const [selectedPhoneNumbers, setSelectedPhoneNumbers] = useState<string[]>(
-    []
-  );
+  const [selectedPhoneNumbers, setSelectedPhoneNumbers] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [showPhoneForm, setShowPhoneForm] = useState(false);
   const [editingPhone, setEditingPhone] = useState<PhoneNumber | null>(null);
@@ -102,6 +110,11 @@ export default function PhoneNumbersPage() {
   const [assigningPhone, setAssigningPhone] = useState<PhoneNumber | null>(
     null
   );
+  const [dialog, setDialog] = useState<{
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   // Fetch phone numbers
   const fetchPhoneNumbers = async (page = 1) => {
@@ -177,16 +190,19 @@ export default function PhoneNumbersPage() {
     }
   };
 
-  const handleDeletePhone = async (phoneNumberId: string) => {
-    if (!confirm("Are you sure you want to delete this phone number?")) return;
-
-    try {
-      await api.delete(`/admin/phone-numbers/${phoneNumberId}`);
-
-      fetchPhoneNumbers(pagination.currentPage);
-    } catch (error) {
-      console.error("Error deleting phone number:", error);
-    }
+  const handleDeletePhone = (phoneNumberId: string) => {
+    setDialog({
+      title: "Are you sure you want to delete this phone number?",
+      description: "This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          await api.delete(`/admin/phone-numbers/${phoneNumberId}`);
+          fetchPhoneNumbers(pagination.currentPage);
+        } catch (error) {
+          console.error("Error deleting phone number:", error);
+        }
+      },
+    });
   };
 
   const handleBulkAction = async (action: string, clientId?: string) => {
@@ -209,6 +225,15 @@ export default function PhoneNumbersPage() {
     } catch (error) {
       console.error("Error performing bulk action:", error);
     }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedPhoneNumbers.length === 0) return;
+    setDialog({
+      title: `Are you sure you want to delete ${selectedPhoneNumbers.length} phone numbers?`,
+      description: "This action cannot be undone.",
+      onConfirm: () => handleBulkAction("delete"),
+    });
   };
 
   const handleCreatePhone = async (formData: any) => {
@@ -344,7 +369,7 @@ export default function PhoneNumbersPage() {
                   placeholder="Search phone numbers..."
                   value={filters.search}
                   onChange={(e) =>
-                    setFilters({...filters, search: e.target.value})
+                    setFilters({ ...filters, search: e.target.value })
                   }
                   className="pl-8 w-[250px]"
                 />
@@ -452,7 +477,7 @@ export default function PhoneNumbersPage() {
               <div className="flex items-end">
                 <Button
                   variant="outline"
-                  onClick={() => setFilters({search: ""})}
+                  onClick={() => setFilters({ search: "" })}
                   className="w-full"
                 >
                   Clear Filters
@@ -494,7 +519,7 @@ export default function PhoneNumbersPage() {
                 <Button
                   size="sm"
                   variant="destructive"
-                  onClick={() => handleBulkAction("delete")}
+                  onClick={handleBulkDelete}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Delete
@@ -752,6 +777,25 @@ export default function PhoneNumbersPage() {
         onAssign={handleAssignment}
         phoneNumber={assigningPhone}
       />
+      <AlertDialog open={!!dialog} onOpenChange={() => setDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{dialog?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{dialog?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                dialog?.onConfirm();
+                setDialog(null);
+              }}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

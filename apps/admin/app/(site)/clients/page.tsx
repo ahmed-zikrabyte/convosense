@@ -1,6 +1,6 @@
 "use client";
 
-import React, {useState, useEffect} from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -16,9 +16,19 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import {Badge} from "@workspace/ui/components/badge";
-import {Button} from "@workspace/ui/components/button";
-import {Input} from "@workspace/ui/components/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@workspace/ui/components/alert-dialog";
+import { Badge } from "@workspace/ui/components/badge";
+import { Button } from "@workspace/ui/components/button";
+import { Input } from "@workspace/ui/components/input";
 import {
   Plus,
   Search,
@@ -31,8 +41,8 @@ import {
   RefreshCw,
   Bot,
 } from "lucide-react";
-import {formatDistanceToNow} from "date-fns";
-import {ClientForm} from "@/components/client-form";
+import { formatDistanceToNow } from "date-fns";
+import { ClientForm } from "@/components/client-form";
 import api from "@/lib/axios";
 
 interface Client {
@@ -85,6 +95,11 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [clientAgents, setClientAgents] = useState<Record<string, any[]>>({});
+  const [dialog, setDialog] = useState<{
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   // Fetch clients
   const fetchClients = async (page = 1) => {
@@ -172,7 +187,7 @@ export default function ClientsPage() {
   ) => {
     try {
       await api.patch(`/admin/clients/${clientId}/status`, {
-        isActive: !currentStatus
+        isActive: !currentStatus,
       });
 
       fetchClients(pagination.currentPage);
@@ -181,16 +196,20 @@ export default function ClientsPage() {
     }
   };
 
-  const handleDeleteClient = async (clientId: string) => {
-    if (!confirm("Are you sure you want to delete this client?")) return;
-
-    try {
-      await api.delete(`/admin/clients/${clientId}`);
-
-      fetchClients(pagination.currentPage);
-    } catch (error) {
-      console.error("Error deleting client:", error);
-    }
+  const handleDeleteClient = (clientId: string) => {
+    setDialog({
+      title: "Are you sure you want to delete this client?",
+      description:
+        "This action cannot be undone and will delete the client and all associated data.",
+      onConfirm: async () => {
+        try {
+          await api.delete(`/admin/clients/${clientId}`);
+          fetchClients(pagination.currentPage);
+        } catch (error) {
+          console.error("Error deleting client:", error);
+        }
+      },
+    });
   };
 
   const handleBulkAction = async (action: string) => {
@@ -215,6 +234,15 @@ export default function ClientsPage() {
     } catch (error) {
       console.error("Error performing bulk action:", error);
     }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedClients.length === 0) return;
+    setDialog({
+      title: `Are you sure you want to delete ${selectedClients.length} clients?`,
+      description: "This action cannot be undone.",
+      onConfirm: () => handleBulkAction("delete"),
+    });
   };
 
   const formatCredits = (minutes: number) => {
@@ -243,10 +271,7 @@ export default function ClientsPage() {
 
     try {
       setFormLoading(true);
-      await api.patch(
-        `/admin/clients/${editingClient._id}`,
-        formData
-      );
+      await api.patch(`/admin/clients/${editingClient._id}`, formData);
 
       setShowClientForm(false);
       setEditingClient(null);
@@ -316,7 +341,7 @@ export default function ClientsPage() {
                   placeholder="Search clients..."
                   value={filters.search}
                   onChange={(e) =>
-                    setFilters({...filters, search: e.target.value})
+                    setFilters({ ...filters, search: e.target.value })
                   }
                   className="pl-8 w-[250px]"
                 />
@@ -368,9 +393,8 @@ export default function ClientsPage() {
                   onChange={(e) =>
                     setFilters({
                       ...filters,
-                      minCredits: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
+                      minCredits:
+                        e.target.value ? Number(e.target.value) : undefined,
                     })
                   }
                 />
@@ -386,9 +410,8 @@ export default function ClientsPage() {
                   onChange={(e) =>
                     setFilters({
                       ...filters,
-                      maxCredits: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
+                      maxCredits:
+                        e.target.value ? Number(e.target.value) : undefined,
                     })
                   }
                 />
@@ -396,7 +419,7 @@ export default function ClientsPage() {
               <div className="flex items-end">
                 <Button
                   variant="outline"
-                  onClick={() => setFilters({search: ""})}
+                  onClick={() => setFilters({ search: "" })}
                   className="w-full"
                 >
                   Clear Filters
@@ -438,7 +461,7 @@ export default function ClientsPage() {
                 <Button
                   size="sm"
                   variant="destructive"
-                  onClick={() => handleBulkAction("delete")}
+                  onClick={handleBulkDelete}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Delete
@@ -532,7 +555,8 @@ export default function ClientsPage() {
                             Available: {formatCredits(client.availableCredits)}
                           </div>
                           <div className="text-muted-foreground">
-                            Total: {formatCredits(client.credits_total_minutes)}
+                            Total:{" "}
+                            {formatCredits(client.credits_total_minutes)}
                           </div>
                           <div className="text-muted-foreground">
                             Used:{" "}
@@ -552,7 +576,9 @@ export default function ClientsPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleManageClientAgents(client._id)}
+                              onClick={() =>
+                                handleManageClientAgents(client._id)
+                              }
                             >
                               Manage
                             </Button>
@@ -560,7 +586,9 @@ export default function ClientsPage() {
                         ) : (
                           <div className="flex items-center space-x-2">
                             <Bot className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">Loading...</span>
+                            <span className="text-sm text-muted-foreground">
+                              Loading...
+                            </span>
                           </div>
                         )}
                       </TableCell>
@@ -653,6 +681,25 @@ export default function ClientsPage() {
         mode={editingClient ? "edit" : "create"}
         loading={formLoading}
       />
+      <AlertDialog open={!!dialog} onOpenChange={() => setDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{dialog?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{dialog?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                dialog?.onConfirm();
+                setDialog(null);
+              }}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -156,16 +156,30 @@ export default function AgentDetailPage() {
     }
   };
 
-  const handleEditPrompt = async (newPrompt: string) => {
-    if (!llmDetails) return;
+  const handleEditPrompt = async (newPrompt: string, publishAgent = false) => {
+    if (!llmDetails || !agentDetails) return;
 
     try {
+      // Update the LLM prompt
       const response = await api.patch(`/admin/agents/llm/${llmDetails.llm_id}`, {
         general_prompt: newPrompt
       });
 
       if (response.data.status === "success") {
         setLLMDetails(response.data.data.llm);
+
+        // If publish is requested, publish the agent
+        if (publishAgent) {
+          try {
+            await api.post(`/admin/agents/${agentDetails.agent_id}/publish`);
+            // Refresh agent details to get updated published status
+            await fetchAgentData();
+          } catch (publishError) {
+            console.error("Error publishing agent:", publishError);
+            // Don't throw here - prompt was saved successfully
+          }
+        }
+
         setShowEditModal(false);
       }
     } catch (error) {
@@ -488,6 +502,7 @@ export default function AgentDetailPage() {
           onSubmit={handleEditPrompt}
           currentPrompt={llmDetails.general_prompt}
           llmId={llmDetails.llm_id}
+          agentId={agentDetails?.agent_id}
         />
       )}
     </div>
