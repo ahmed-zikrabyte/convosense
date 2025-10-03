@@ -13,7 +13,10 @@ export const createCampaign = catchAsync(async (req: AuthenticatedRequest, res: 
   const { id: clientId } = req.user!;
   const campaignData: CreateCampaignData = req.body;
 
-  const campaign = await campaignService.createCampaign(clientId, campaignData);
+  // Use agent-based campaign creation if agent_id is provided
+  const campaign = campaignData.agent_id
+    ? await campaignService.createAgentBasedCampaign(clientId, campaignData)
+    : await campaignService.createCampaign(clientId, campaignData);
 
   res.status(201).json({
     status: "success",
@@ -50,7 +53,7 @@ export const getCampaign = catchAsync(async (req: AuthenticatedRequest, res: Res
     return res.status(400).json({ status: "error", message: "Campaign ID is required" });
   }
 
-  const campaign = await campaignService.getCampaignById(clientId, campaignId);
+  const campaign = await campaignService.getCampaignWithGeneralPrompt(clientId, campaignId);
 
   res.status(200).json({
     status: "success",
@@ -113,24 +116,6 @@ export const duplicateCampaign = catchAsync(async (req: AuthenticatedRequest, re
   });
 });
 
-export const updateKnowledgeBase = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
-  const { id: clientId } = req.user!;
-  const { campaignId } = req.params;
-  const { kb_files_meta } = req.body;
-
-  if (!campaignId) {
-    return res.status(400).json({ status: "error", message: "Campaign ID is required" });
-  }
-
-  const campaign = await campaignService.updateKnowledgeBase(clientId, campaignId, kb_files_meta);
-
-  res.status(200).json({
-    status: "success",
-    data: {
-      campaign,
-    },
-  });
-});
 
 export const getCampaignStats = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
   const { id: clientId } = req.user!;

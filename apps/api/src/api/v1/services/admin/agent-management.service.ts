@@ -256,7 +256,10 @@ class AgentManagementService {
       return response;
     } catch (error) {
       console.error("Failed to publish agent:", error);
-      throw new AppError("Failed to publish agent", 500);
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError(`Failed to publish agent: ${error instanceof Error ? error.message : 'Unknown error'}`, 500);
     }
   }
 

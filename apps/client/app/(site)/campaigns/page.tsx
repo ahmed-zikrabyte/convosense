@@ -53,18 +53,12 @@ import { cn } from "@workspace/ui/lib/utils";
 
 const statusColors = {
   draft: "bg-gray-100 text-gray-800 border-gray-200",
-  active: "bg-green-100 text-green-800 border-green-200",
-  paused: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  completed: "bg-blue-100 text-blue-800 border-blue-200",
-  archived: "bg-red-100 text-red-800 border-red-200",
+  published: "bg-green-100 text-green-800 border-green-200",
 };
 
 const statusIcons = {
   draft: Edit,
-  active: Play,
-  paused: Pause,
-  completed: CheckCircle,
-  archived: Archive,
+  published: CheckCircle,
 };
 
 export default function CampaignsPage() {
@@ -101,6 +95,7 @@ export default function CampaignsPage() {
     deleteCampaign,
     duplicateCampaign,
     updateCampaign,
+    publishCampaign,
   } = useCampaignOperations();
 
   const loading = campaignsLoading || statsLoading;
@@ -134,10 +129,18 @@ export default function CampaignsPage() {
     campaignId: string,
     newStatus: Campaign["status"]
   ) => {
-    const result = await updateCampaign(campaignId, { status: newStatus });
-    if (result) {
-      refetchCampaigns();
-      refetchStats();
+    if (newStatus === "published") {
+      const result = await publishCampaign(campaignId);
+      if (result) {
+        refetchCampaigns();
+        refetchStats();
+      }
+    } else {
+      const result = await updateCampaign(campaignId, { status: newStatus });
+      if (result) {
+        refetchCampaigns();
+        refetchStats();
+      }
     }
   };
 
@@ -232,31 +235,11 @@ export default function CampaignsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <CardTitle className="text-sm font-medium">Published</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {stats.active}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Paused</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {stats.paused}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {stats.completed}
+              {stats.published}
             </div>
           </CardContent>
         </Card>
@@ -284,14 +267,8 @@ export default function CampaignsPage() {
             <DropdownMenuItem onClick={() => setFilterStatus("draft")}>
               Draft
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilterStatus("active")}>
-              Active
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilterStatus("paused")}>
-              Paused
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilterStatus("completed")}>
-              Completed
+            <DropdownMenuItem onClick={() => setFilterStatus("published")}>
+              Published
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -351,7 +328,7 @@ export default function CampaignsPage() {
                         <span className="capitalize">{campaign.status}</span>
                       </Badge>
                       <div className="text-sm text-muted-foreground">
-                        {campaign.kb_files_meta.length} files
+                        Agent: {campaign.agent_id}
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -385,33 +362,20 @@ export default function CampaignsPage() {
                             <Copy className="w-4 h-4 mr-2" />
                             Duplicate
                           </DropdownMenuItem>
-                          {campaign.status === "active" ? (
+                          {campaign.status === "draft" && (
                             <DropdownMenuItem
                               onClick={() =>
                                 handleStatusChange(
                                   campaign.campaignId,
-                                  "paused"
-                                )
-                              }
-                              disabled={operationsLoading}
-                            >
-                              <Pause className="w-4 h-4 mr-2" />
-                              Pause
-                            </DropdownMenuItem>
-                          ) : campaign.status === "paused" ? (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleStatusChange(
-                                  campaign.campaignId,
-                                  "active"
+                                  "published"
                                 )
                               }
                               disabled={operationsLoading}
                             >
                               <Play className="w-4 h-4 mr-2" />
-                              Resume
+                              Publish
                             </DropdownMenuItem>
-                          ) : null}
+                          )}
                           <DropdownMenuItem
                             onClick={() => handleDelete(campaign.campaignId)}
                             className="text-red-600 hover:text-red-700"

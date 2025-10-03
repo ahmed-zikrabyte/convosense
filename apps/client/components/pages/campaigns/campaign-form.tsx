@@ -5,39 +5,23 @@ import { Button } from "@workspace/ui/components/button";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@workspace/ui/components/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/tabs";
 import {
   Save,
   ArrowLeft,
   Bot,
-  FileText,
-  Settings,
+  MessageSquare,
   Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@workspace/ui/lib/utils";
 
-import { BasicInfoForm } from "./basic-info-form";
-import { KnowledgeBaseForm } from "./knowledge-base-form";
-import { VoiceSettingsForm } from "./voice-settings-form";
+import { AgentSelectionForm } from "./agent-selection-form";
+import { GeneralPromptForm } from "./general-prompt-form";
 import {
   CampaignFormProps,
   CampaignFormData,
-  KnowledgeFile,
-  KnowledgeText,
-  KnowledgeUrl,
-  CampaignSettings,
 } from "./types";
-import { DEFAULT_CAMPAIGN_SETTINGS } from "./constants";
-import { generateId, prepareKnowledgeBaseForSubmit } from "./utils";
 
 export function CampaignForm({
   mode,
@@ -47,23 +31,15 @@ export function CampaignForm({
   loading = false,
   error,
 }: CampaignFormProps) {
-  const [currentTab, setCurrentTab] = useState("basic");
   const [currentStep, setCurrentStep] = useState(1);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<CampaignFormData>({
     name: "",
-    script_raw: "",
-    voice_id: "",
-    settings: { ...DEFAULT_CAMPAIGN_SETTINGS },
+    agent_id: "",
+    general_prompt: "",
   });
-
-  // Knowledge base state
-  const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>([]);
-  const [knowledgeTexts, setKnowledgeTexts] = useState<KnowledgeText[]>([]);
-  const [knowledgeUrls, setKnowledgeUrls] = useState<KnowledgeUrl[]>([]);
-  const [activeKnowledgeTab, setActiveKnowledgeTab] = useState("files");
 
   // Form validation errors
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
@@ -73,20 +49,9 @@ export function CampaignForm({
     if (mode === "edit" && campaign) {
       setFormData({
         name: campaign.name || "",
-        script_raw: campaign.script_raw || "",
-        voice_id: campaign.voice_id || "",
-        settings: { ...DEFAULT_CAMPAIGN_SETTINGS, ...campaign.settings },
+        agent_id: campaign.agent_id || "",
+        general_prompt: campaign.general_prompt || "",
       });
-
-      // Convert existing knowledge base files
-      if (campaign.kb_files_meta) {
-        const existingFiles = campaign.kb_files_meta.map((file: any, index: number) => ({
-          ...file,
-          id: `existing-${index}`,
-          isNew: false,
-        }));
-        setKnowledgeFiles(existingFiles);
-      }
 
       setHasChanges(false);
     }
@@ -96,15 +61,15 @@ export function CampaignForm({
     const newErrors: Partial<Record<string, string>> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = "Campaign name is required";
+      newErrors.name = "Campaign title is required";
     }
 
-    if (!formData.script_raw.trim()) {
-      newErrors.script_raw = "Call script is required";
+    if (mode === "create" && !formData.agent_id) {
+      newErrors.agent_id = "Agent selection is required";
     }
 
-    if (!formData.voice_id) {
-      newErrors.voice_id = "Voice selection is required";
+    if (!formData.general_prompt.trim()) {
+      newErrors.general_prompt = "General prompt is required";
     }
 
     setErrors(newErrors);
@@ -116,14 +81,14 @@ export function CampaignForm({
 
     if (step === 1) {
       if (!formData.name.trim()) {
-        stepErrors.name = "Campaign name is required";
+        stepErrors.name = "Campaign title is required";
       }
-      if (!formData.script_raw.trim()) {
-        stepErrors.script_raw = "Call script is required";
+      if (mode === "create" && !formData.agent_id) {
+        stepErrors.agent_id = "Agent selection is required";
       }
-    } else if (step === 3) {
-      if (!formData.voice_id) {
-        stepErrors.voice_id = "Voice selection is required";
+    } else if (step === 2) {
+      if (!formData.general_prompt.trim()) {
+        stepErrors.general_prompt = "General prompt is required";
       }
     }
 
@@ -133,7 +98,7 @@ export function CampaignForm({
 
   const handleNextStep = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep((prev) => Math.min(3, prev + 1));
+      setCurrentStep((prev) => Math.min(2, prev + 1));
     }
   };
 
@@ -154,98 +119,14 @@ export function CampaignForm({
     }
   };
 
-  const handleSettingsChange = (field: keyof CampaignSettings, value: any) => {
-    setFormData((prev) => ({
-      ...prev,
-      settings: {
-        ...prev.settings,
-        [field]: value,
-      },
-    }));
-    setHasChanges(true);
-  };
-
-  // Knowledge base handlers
-  const handleFileUpload = (fileList: FileList) => {
-    const files = Array.from(fileList);
-    const newFiles = files.map((file) => ({
-      id: `new-${generateId()}`,
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      uploadedAt: new Date().toISOString(),
-      file,
-      isNew: true,
-    }));
-    setKnowledgeFiles((prev) => [...prev, ...newFiles]);
-    setHasChanges(true);
-  };
-
-  const handleFileRemove = (id: string) => {
-    setKnowledgeFiles((prev) => prev.filter((file) => file.id !== id));
-    setHasChanges(true);
-  };
-
-  const handleTextAdd = () => {
-    setKnowledgeTexts((prev) => [
-      ...prev,
-      {
-        id: generateId(),
-        title: "",
-        content: "",
-      },
-    ]);
-    setHasChanges(true);
-  };
-
-  const handleTextUpdate = (id: string, field: keyof KnowledgeText, value: string) => {
-    setKnowledgeTexts((prev) =>
-      prev.map((text) => (text.id === id ? { ...text, [field]: value } : text))
-    );
-    setHasChanges(true);
-  };
-
-  const handleTextRemove = (id: string) => {
-    setKnowledgeTexts((prev) => prev.filter((text) => text.id !== id));
-    setHasChanges(true);
-  };
-
-  const handleUrlAdd = () => {
-    setKnowledgeUrls((prev) => [
-      ...prev,
-      {
-        id: generateId(),
-        url: "",
-        title: "",
-      },
-    ]);
-    setHasChanges(true);
-  };
-
-  const handleUrlUpdate = (id: string, field: keyof KnowledgeUrl, value: string) => {
-    setKnowledgeUrls((prev) =>
-      prev.map((url) => (url.id === id ? { ...url, [field]: value } : url))
-    );
-    setHasChanges(true);
-  };
-
-  const handleUrlRemove = (id: string) => {
-    setKnowledgeUrls((prev) => prev.filter((url) => url.id !== id));
-    setHasChanges(true);
-  };
-
   const handleSubmit = async (isDraft = false) => {
     if (!validateForm()) {
-      setCurrentTab("basic");
+      setCurrentStep(1);
       return;
     }
 
     try {
-      await onSubmit(formData, {
-        files: knowledgeFiles,
-        texts: knowledgeTexts,
-        urls: knowledgeUrls,
-      });
+      await onSubmit(formData);
       setHasChanges(false);
     } catch (error) {
       console.error("Error submitting campaign:", error);
@@ -258,7 +139,7 @@ export function CampaignForm({
 
   const getSubtitle = () => {
     if (mode === "create") {
-      return "Set up your AI voice campaign in 3 simple steps";
+      return "Set up your AI voice campaign in 2 simple steps";
     }
     return campaign ? `${campaign.name} • ${campaign.status}` : "";
   };
@@ -271,9 +152,8 @@ export function CampaignForm({
   };
 
   const steps = [
-    { id: 1, title: "Basic Info", icon: Bot },
-    { id: 2, title: "Knowledge Base", icon: FileText },
-    { id: 3, title: "Voice & Settings", icon: Settings },
+    { id: 1, title: "Agent Selection", icon: Bot },
+    { id: 2, title: "General Prompt", icon: MessageSquare },
   ];
 
   const renderStepIndicator = () => (
@@ -308,7 +188,7 @@ export function CampaignForm({
     switch (currentStep) {
       case 1:
         return (
-          <BasicInfoForm
+          <AgentSelectionForm
             data={formData}
             onChange={handleInputChange}
             errors={errors}
@@ -316,28 +196,9 @@ export function CampaignForm({
         );
       case 2:
         return (
-          <KnowledgeBaseForm
-            files={knowledgeFiles}
-            texts={knowledgeTexts}
-            urls={knowledgeUrls}
-            activeTab={activeKnowledgeTab}
-            onTabChange={setActiveKnowledgeTab}
-            onFileUpload={handleFileUpload}
-            onFileRemove={handleFileRemove}
-            onTextAdd={handleTextAdd}
-            onTextUpdate={handleTextUpdate}
-            onTextRemove={handleTextRemove}
-            onUrlAdd={handleUrlAdd}
-            onUrlUpdate={handleUrlUpdate}
-            onUrlRemove={handleUrlRemove}
-          />
-        );
-      case 3:
-        return (
-          <VoiceSettingsForm
+          <GeneralPromptForm
             data={formData}
             onChange={handleInputChange}
-            onSettingsChange={handleSettingsChange}
             errors={errors}
           />
         );
@@ -360,18 +221,18 @@ export function CampaignForm({
         <Button
           variant="outline"
           onClick={() => handleSubmit(true)}
-          disabled={loading || !formData.name}
+          disabled={loading || !formData.name || (mode === "create" && !formData.agent_id)}
         >
           <Save className="w-4 h-4 mr-2" />
           {loading ? "Saving..." : "Save Draft"}
         </Button>
 
-        {currentStep < 3 ? (
+        {currentStep < 2 ? (
           <Button
             onClick={handleNextStep}
             disabled={
               !formData.name ||
-              (currentStep === 1 && !formData.script_raw)
+              (mode === "create" && !formData.agent_id)
             }
           >
             Next
@@ -379,7 +240,7 @@ export function CampaignForm({
         ) : (
           <Button
             onClick={() => handleSubmit(false)}
-            disabled={loading || !formData.voice_id}
+            disabled={loading || !formData.general_prompt}
           >
             {loading ? "Creating..." : "Create Campaign"}
           </Button>
@@ -434,93 +295,56 @@ export function CampaignForm({
         </Card>
       )}
 
-      {mode === "create" ? (
-        <>
-          {/* Step Progress Indicator for Create Mode */}
-          {renderStepIndicator()}
-
-          {/* Form Content for Create Mode */}
-          <Card>
-            <CardContent className="p-8">
+      {/* Form Content */}
+      <Card>
+        <CardContent className="p-8">
+          {mode === "create" ? (
+            <>
+              {/* Step Progress Indicator for Create Mode */}
+              {renderStepIndicator()}
               {renderStepContent()}
-            </CardContent>
-          </Card>
-
-          {/* Step Navigation for Create Mode */}
-          {renderStepNavigation()}
-        </>
-      ) : (
-        <>
-          {/* Tab Interface for Edit Mode */}
-          <Card>
-            <CardContent className="p-0">
-              <Tabs value={currentTab} onValueChange={setCurrentTab}>
-                <div className="border-b px-6 pt-6">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="basic" className="flex items-center space-x-2">
-                      <Bot className="w-4 h-4" />
-                      <span>Basic Info</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="knowledge" className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4" />
-                      <span>Knowledge Base</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="settings" className="flex items-center space-x-2">
-                      <Settings className="w-4 h-4" />
-                      <span>Voice & Settings</span>
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-
-                <div className="p-6">
-                  <TabsContent value="basic" className="space-y-6 mt-0">
-                    <BasicInfoForm
-                      data={formData}
-                      onChange={handleInputChange}
-                      errors={errors}
-                    />
-                  </TabsContent>
-
-                  <TabsContent value="knowledge" className="space-y-6 mt-0">
-                    <KnowledgeBaseForm
-                      files={knowledgeFiles}
-                      texts={knowledgeTexts}
-                      urls={knowledgeUrls}
-                      activeTab={activeKnowledgeTab}
-                      onTabChange={setActiveKnowledgeTab}
-                      onFileUpload={handleFileUpload}
-                      onFileRemove={handleFileRemove}
-                      onTextAdd={handleTextAdd}
-                      onTextUpdate={handleTextUpdate}
-                      onTextRemove={handleTextRemove}
-                      onUrlAdd={handleUrlAdd}
-                      onUrlUpdate={handleUrlUpdate}
-                      onUrlRemove={handleUrlRemove}
-                    />
-                  </TabsContent>
-
-                  <TabsContent value="settings" className="space-y-6 mt-0">
-                    <VoiceSettingsForm
-                      data={formData}
-                      onChange={handleInputChange}
-                      onSettingsChange={handleSettingsChange}
-                      errors={errors}
-                    />
-                  </TabsContent>
-                </div>
-              </Tabs>
-            </CardContent>
-          </Card>
-
-          {/* Changes indicator for Edit Mode */}
-          {hasChanges && (
-            <div className="fixed bottom-4 right-4 bg-yellow-100 border border-yellow-300 rounded-lg p-3 shadow-lg">
-              <div className="text-sm font-medium text-yellow-800">
-                You have unsaved changes
-              </div>
+            </>
+          ) : (
+            <div className="space-y-6">
+              <AgentSelectionForm
+                data={formData}
+                onChange={handleInputChange}
+                errors={errors}
+                isReadOnly={true}
+              />
+              <hr className="my-8" />
+              <GeneralPromptForm
+                data={formData}
+                onChange={handleInputChange}
+                errors={errors}
+              />
             </div>
           )}
-        </>
+        </CardContent>
+      </Card>
+
+      {/* Navigation */}
+      {mode === "create" ? (
+        renderStepNavigation()
+      ) : (
+        <div className="flex justify-end mt-8">
+          <Button
+            onClick={() => handleSubmit(false)}
+            disabled={loading || !hasChanges}
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {loading ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      )}
+
+      {/* Changes indicator for Edit Mode */}
+      {mode === "edit" && hasChanges && (
+        <div className="fixed bottom-4 right-4 bg-yellow-100 border border-yellow-300 rounded-lg p-3 shadow-lg">
+          <div className="text-sm font-medium text-yellow-800">
+            You have unsaved changes
+          </div>
+        </div>
       )}
     </div>
   );

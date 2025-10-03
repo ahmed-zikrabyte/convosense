@@ -4,53 +4,29 @@ export interface Campaign {
   _id: string;
   campaignId: string;
   name: string;
-  status: "draft" | "active" | "paused" | "completed" | "archived";
+  status: "draft" | "published";
   createdAt: string;
   updatedAt: string;
-  script_raw: string;
-  voice_id: string;
-  kb_files_meta: Array<{
-    fileName: string;
-    fileType: string;
-    fileSize: number;
-    uploadedAt: string;
-    fileUrl?: string;
-  }>;
-  settings: {
-    max_duration_seconds: number;
-    retry_attempts: number;
-    retry_delay_seconds: number;
-    enable_voicemail_detection: boolean;
-    enable_ambient_sounds: boolean;
-    ambient_sound_volume: number;
-    webhook_url?: string;
-  };
-  agent_id?: string;
-  knowledge_base_id?: string;
-  published_version?: number;
+  agent_id: string;
+  published_version: number;
+  general_prompt?: string;
 }
 
 export interface CampaignStats {
   total: number;
   draft: number;
-  active: number;
-  paused: number;
-  completed: number;
+  published: number;
 }
 
 export interface CreateCampaignData {
   name: string;
-  script_raw: string;
-  voice_id: string;
-  settings?: Partial<Campaign["settings"]>;
-  kb_files_meta?: Campaign["kb_files_meta"];
+  agent_id: string;
+  general_prompt: string;
 }
 
 export interface UpdateCampaignData {
   name?: string;
-  script_raw?: string;
-  voice_id?: string;
-  settings?: Partial<Campaign["settings"]>;
+  general_prompt?: string;
   status?: Campaign["status"];
 }
 
@@ -114,16 +90,11 @@ class CampaignAPI {
     return response.data.data.campaign;
   }
 
-  async updateKnowledgeBase(
-    campaignId: string,
-    kbFiles: Campaign["kb_files_meta"]
-  ): Promise<Campaign> {
-    const response = await axiosInstance.patch(
-      `${this.basePath}/${campaignId}/knowledge-base`,
-      { kb_files_meta: kbFiles }
-    );
+  async publishCampaign(campaignId: string): Promise<Campaign> {
+    const response = await axiosInstance.post(`${this.basePath}/${campaignId}/publish`);
     return response.data.data.campaign;
   }
+
 }
 
 export const campaignAPI = new CampaignAPI();

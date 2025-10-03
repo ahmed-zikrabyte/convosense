@@ -53,9 +53,7 @@ export const useCampaignStats = () => {
   const [stats, setStats] = useState<CampaignStats>({
     total: 0,
     draft: 0,
-    active: 0,
-    paused: 0,
-    completed: 0,
+    published: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -148,22 +146,20 @@ export const useCampaignOperations = () => {
     }
   };
 
-  const updateKnowledgeBase = async (
-    campaignId: string,
-    kbFiles: Campaign["kb_files_meta"]
-  ): Promise<Campaign | null> => {
+  const publishCampaign = async (campaignId: string): Promise<Campaign | null> => {
     try {
       setLoading(true);
       setError(null);
-      const campaign = await campaignAPI.updateKnowledgeBase(campaignId, kbFiles);
+      const campaign = await campaignAPI.publishCampaign(campaignId);
       return campaign;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update knowledge base");
+      setError(err instanceof Error ? err.message : "Failed to publish campaign");
       return null;
     } finally {
       setLoading(false);
     }
   };
+
 
   return {
     loading,
@@ -172,7 +168,7 @@ export const useCampaignOperations = () => {
     updateCampaign,
     deleteCampaign,
     duplicateCampaign,
-    updateKnowledgeBase,
+    publishCampaign,
   };
 };
 

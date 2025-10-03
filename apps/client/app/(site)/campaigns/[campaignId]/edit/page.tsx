@@ -3,8 +3,8 @@
 import React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useCampaign, useCampaignOperations } from "@/lib/hooks/use-campaigns";
-import { CampaignForm, prepareKnowledgeBaseForSubmit } from "@/components/pages/campaigns";
-import type { CampaignFormData, KnowledgeFile, KnowledgeText, KnowledgeUrl } from "@/components/pages/campaigns";
+import { CampaignForm } from "@/components/pages/campaigns";
+import type { CampaignFormData } from "@/components/pages/campaigns";
 
 export default function EditCampaignPage() {
   const params = useParams();
@@ -14,30 +14,11 @@ export default function EditCampaignPage() {
   const { campaign, loading: campaignLoading, error: campaignError, refetch } = useCampaign(campaignId);
   const { updateCampaign, loading: apiLoading, error: apiError } = useCampaignOperations();
 
-  const handleSubmit = async (
-    formData: CampaignFormData,
-    knowledgeBase: {
-      files: KnowledgeFile[];
-      texts: KnowledgeText[];
-      urls: KnowledgeUrl[];
-    }
-  ) => {
+  const handleSubmit = async (formData: CampaignFormData) => {
     if (!campaign) return;
 
     try {
-      // Prepare knowledge base files metadata
-      const kb_files_meta = prepareKnowledgeBaseForSubmit(
-        knowledgeBase.files,
-        knowledgeBase.texts,
-        knowledgeBase.urls
-      );
-
-      const updateData = {
-        ...formData,
-        kb_files_meta,
-      };
-
-      const result = await updateCampaign(campaign.campaignId, updateData);
+      const result = await updateCampaign(campaign.campaignId, formData);
 
       if (result) {
         refetch();

@@ -179,10 +179,32 @@ export class RetellService {
 
   async publishAgent(agentId: string) {
     try {
+      console.log("Publishing agent:", agentId);
       const response = await this.client.agent.publish(agentId);
+      console.log("Agent published successfully:", response);
       return response;
     } catch (error) {
       console.error("Failed to publish agent:", error);
+      console.error("Error details:", error instanceof Error ? error.message : error);
+      throw error;
+    }
+  }
+
+  async getAgentVersionBeforePublish(agentId: string) {
+    try {
+      // Get the current agent to find its version before publishing
+      console.log("Getting agent version for:", agentId);
+      const agent = await this.client.agent.retrieve(agentId);
+      console.log("Agent details:", {
+        id: agent.agent_id,
+        version: agent.version,
+        last_modification_timestamp: agent.last_modification_timestamp,
+        published_version: (agent as any).published_version || "not found",
+        full_agent: agent
+      });
+      return agent.version || 0;
+    } catch (error) {
+      console.error("Failed to get agent version:", error);
       throw error;
     }
   }

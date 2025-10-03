@@ -32,9 +32,8 @@ export interface CampaignSettings {
 
 export interface CampaignFormData {
   name: string;
-  script_raw: string;
-  voice_id: string;
-  settings: CampaignSettings;
+  agent_id: string;
+  general_prompt: string;
 }
 
 export interface VoiceOption {
@@ -49,11 +48,7 @@ export type CampaignFormMode = "create" | "edit";
 export interface CampaignFormProps {
   mode: CampaignFormMode;
   campaign?: any; // Replace with actual campaign type from API
-  onSubmit: (data: CampaignFormData, knowledgeBase: {
-    files: KnowledgeFile[];
-    texts: KnowledgeText[];
-    urls: KnowledgeUrl[];
-  }) => Promise<void>;
+  onSubmit: (data: CampaignFormData) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
   error?: string;

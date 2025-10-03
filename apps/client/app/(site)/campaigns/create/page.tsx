@@ -3,38 +3,16 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useCampaignOperations } from "@/lib/hooks/use-campaigns";
-import { CampaignForm, prepareKnowledgeBaseForSubmit } from "@/components/pages/campaigns";
-import type { CampaignFormData, KnowledgeFile, KnowledgeText, KnowledgeUrl } from "@/components/pages/campaigns";
+import { CampaignForm } from "@/components/pages/campaigns";
+import type { CampaignFormData } from "@/components/pages/campaigns";
 
 export default function CreateCampaignPage() {
   const router = useRouter();
   const { createCampaign, loading, error } = useCampaignOperations();
 
-  const handleSubmit = async (
-    formData: CampaignFormData,
-    knowledgeBase: {
-      files: KnowledgeFile[];
-      texts: KnowledgeText[];
-      urls: KnowledgeUrl[];
-    }
-  ) => {
+  const handleSubmit = async (formData: CampaignFormData) => {
     try {
-      // Prepare knowledge base files metadata
-      const kb_files_meta = prepareKnowledgeBaseForSubmit(
-        knowledgeBase.files,
-        knowledgeBase.texts,
-        knowledgeBase.urls
-      );
-
-      const payload = {
-        name: formData.name,
-        script_raw: formData.script_raw,
-        voice_id: formData.voice_id,
-        settings: formData.settings,
-        kb_files_meta,
-      };
-
-      const result = await createCampaign(payload);
+      const result = await createCampaign(formData);
 
       if (result) {
         // Redirect to campaigns list

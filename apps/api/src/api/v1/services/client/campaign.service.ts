@@ -1,24 +1,20 @@
 import Campaign, {ICampaign} from "../../../../models/campaign.model";
+import Agent from "../../../../models/agent.model";
 import AppError from "../../../../utils/AppError";
 import {
   RetellService,
-  RetellCreateKnowledgeBaseRequest,
-  RetellCreateAgentRequest,
 } from "../retell/retell.service";
+import agentManagementService from "../admin/agent-management.service";
 
 export interface CreateCampaignData {
   name: string;
-  script_raw: string;
-  voice_id: string;
-  settings?: Partial<ICampaign["settings"]>;
-  kb_files_meta?: ICampaign["kb_files_meta"];
+  agent_id: string;
+  general_prompt: string;
 }
 
 export interface UpdateCampaignData {
   name?: string;
-  script_raw?: string;
-  voice_id?: string;
-  settings?: Partial<ICampaign["settings"]>;
+  general_prompt?: string;
   status?: ICampaign["status"];
 }
 
@@ -35,6 +31,62 @@ class CampaignService {
   constructor() {
     this.retellService = new RetellService();
   }
+
+  async createAgentBasedCampaign(
+    clientId: string,
+    campaignData: CreateCampaignData
+  ): Promise<ICampaign> {
+    try {
+      // Verify agent is assigned to this client
+      const agent = await Agent.findOne({
+        agentId: campaignData.agent_id,
+        assignedClientId: clientId
+      });
+
+      if (!agent) {
+        throw new AppError("Agent not found or not assigned to this client", 404);
+      }
+
+      // Check if agent is already used in another campaign
+      const existingCampaign = await Campaign.findOne({
+        clientId,
+        agent_id: campaignData.agent_id
+      });
+
+      if (existingCampaign) {
+        throw new AppError("This agent is already assigned to another campaign", 400);
+      }
+
+      // Get agent details to get LLM ID
+      const { llmDetails } = await agentManagementService.getRetellAgentDetails(campaignData.agent_id);
+
+      if (!llmDetails?.llm_id) {
+        throw new AppError("Agent does not have an LLM configured", 400);
+      }
+
+      // Update LLM with the new general prompt first
+      await agentManagementService.updateLLMPrompt(llmDetails.llm_id, campaignData.general_prompt);
+
+      // Create campaign (status remains draft until published)
+      const campaign = new Campaign({
+        clientId,
+        name: campaignData.name,
+        agent_id: campaignData.agent_id,
+        status: "draft"
+      });
+
+      await campaign.save();
+      return campaign;
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      if (error instanceof Error && error.name === "ValidationError") {
+        throw new AppError(`Validation failed: ${error.message}`, 400);
+      }
+      throw new AppError("Failed to create campaign", 500);
+    }
+  }
   async createCampaign(
     clientId: string,
     campaignData: CreateCampaignData
@@ -47,14 +99,7 @@ class CampaignService {
 
       await campaign.save();
 
-      try {
-        await this.integrateWithRetell(campaign);
-      } catch (retellError) {
-        console.error(
-          "Retell integration failed, but campaign was saved:",
-          retellError
-        );
-      }
+      // Legacy method - no longer used with agent-based campaigns
 
       return campaign;
     } catch (error) {
@@ -134,6 +179,44 @@ class CampaignService {
     }
   }
 
+  async getCampaignWithGeneralPrompt(
+    clientId: string,
+    campaignId: string
+  ): Promise<any> {
+    try {
+      const campaign = await this.getCampaignById(clientId, campaignId);
+
+      if (!campaign.agent_id) {
+        return campaign;
+      }
+
+      try {
+        // Get agent details to find LLM ID
+        const { llmDetails } = await agentManagementService.getRetellAgentDetails(campaign.agent_id);
+
+        if (llmDetails?.llm_id) {
+          // Get LLM details to get general prompt
+          const llm = await this.retellService.getLLM(llmDetails.llm_id);
+          const campaignData = campaign.toObject ? campaign.toObject() : campaign;
+          return {
+            ...campaignData,
+            general_prompt: llm.general_prompt || undefined
+          };
+        }
+      } catch (error) {
+        console.error("Failed to fetch general prompt:", error);
+        // Return campaign without general_prompt if we can't fetch it
+      }
+
+      return campaign.toObject ? campaign.toObject() : campaign;
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError("Failed to fetch campaign with general prompt", 500);
+    }
+  }
+
   async updateCampaign(
     clientId: string,
     campaignId: string,
@@ -197,10 +280,7 @@ class CampaignService {
       const duplicatedCampaign = new Campaign({
         clientId,
         name: `${originalCampaign.name} (Copy)`,
-        script_raw: originalCampaign.script_raw,
-        kb_files_meta: originalCampaign.kb_files_meta,
-        voice_id: originalCampaign.voice_id,
-        settings: originalCampaign.settings,
+        agent_id: originalCampaign.agent_id,
         status: "draft",
       });
 
@@ -214,37 +294,11 @@ class CampaignService {
     }
   }
 
-  async updateKnowledgeBase(
-    clientId: string,
-    campaignId: string,
-    kbFiles: ICampaign["kb_files_meta"]
-  ): Promise<ICampaign> {
-    try {
-      const campaign = await Campaign.findOneAndUpdate(
-        {campaignId, clientId},
-        {$set: {kb_files_meta: kbFiles}},
-        {new: true, runValidators: true}
-      );
-
-      if (!campaign) {
-        throw new AppError("Campaign not found", 404);
-      }
-
-      return campaign;
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      throw new AppError("Failed to update knowledge base", 500);
-    }
-  }
 
   async getCampaignStats(clientId: string): Promise<{
     total: number;
     draft: number;
-    active: number;
-    paused: number;
-    completed: number;
+    published: number;
   }> {
     try {
       const stats = await Campaign.aggregate([
@@ -260,9 +314,7 @@ class CampaignService {
       const result = {
         total: 0,
         draft: 0,
-        active: 0,
-        paused: 0,
-        completed: 0,
+        published: 0,
       };
 
       stats.forEach((stat) => {
@@ -276,71 +328,7 @@ class CampaignService {
     }
   }
 
-  private async integrateWithRetell(campaign: ICampaign): Promise<void> {
-    let knowledgeBaseId: string | undefined;
-    let agentId: string | undefined;
 
-    try {
-      if (campaign.kb_files_meta && campaign.kb_files_meta.length > 0) {
-        knowledgeBaseId = await this.createRetellKnowledgeBase(campaign);
-      }
-      agentId = await this.createRetellAgent(campaign, knowledgeBaseId);
-
-      await Campaign.findByIdAndUpdate(campaign._id, {
-        knowledge_base_id: knowledgeBaseId,
-        agent_id: agentId,
-      });
-    } catch (error) {
-      if (knowledgeBaseId) {
-        try {
-          await this.retellService.deleteKnowledgeBase(knowledgeBaseId);
-        } catch (cleanupError) {
-          console.error("Failed to cleanup knowledge base:", cleanupError);
-        }
-      }
-      if (agentId) {
-        try {
-          await this.retellService.deleteAgent(agentId);
-        } catch (cleanupError) {
-          console.error("Failed to cleanup agent:", cleanupError);
-        }
-      }
-      throw error;
-    }
-  }
-
-  private async createRetellKnowledgeBase(
-    campaign: ICampaign
-  ): Promise<string> {
-    const kbRequest: RetellCreateKnowledgeBaseRequest = {
-      knowledge_base_name: `KB_${campaign.campaignId}`,
-      knowledge_base_files:
-        campaign.kb_files_meta?.map((file) => ({
-          type: "file" as const,
-          content: file.fileUrl || "",
-          name: file.fileName,
-        })) || [],
-    };
-
-    const result = await this.retellService.createKnowledgeBase(kbRequest);
-    return result.knowledge_base_id;
-  }
-
-  private async createRetellAgent(
-    campaign: ICampaign,
-    knowledgeBaseId?: string
-  ): Promise<string> {
-    const agentRequest: RetellCreateAgentRequest = {
-      agent_name: `Agent_${campaign.campaignId}`,
-      voice_id: campaign.voice_id,
-      system_prompt: campaign.script_raw,
-      knowledge_base_id: knowledgeBaseId,
-      llm_websocket_url: campaign.settings.webhook_url,
-    };
-
-    const result = await this.retellService.createAgent(agentRequest);
-    return result.agent_id;
-  }
 
   async publishCampaign(
     clientId: string,
@@ -360,17 +348,24 @@ class CampaignService {
         );
       }
 
-      try {
-        await this.retellService.publishAgent(campaign.agent_id);
-      } catch (error) {
-        console.warn("Failed to publish agent, continuing anyway:", error);
-      }
+      // Get the current agent version before publishing
+      const currentVersion = await this.retellService.getAgentVersionBeforePublish(campaign.agent_id);
+      console.log("Current agent version before publish:", currentVersion);
 
+      // Publish the agent to Retell
+      const publishResult = await agentManagementService.publishAgent(campaign.agent_id);
+      console.log("Publish result:", publishResult);
+
+      // Get the new version after publishing
+      const newVersion = await this.retellService.getAgentVersionBeforePublish(campaign.agent_id);
+      console.log("New agent version after publish:", newVersion);
+
+      // Update campaign with published status and version
       const updatedCampaign = await Campaign.findByIdAndUpdate(
         campaign._id,
         {
-          published_version: 1,
-          status: "active",
+          published_version: Math.max(newVersion, currentVersion + 1), // Use the higher version
+          status: "published",
         },
         {new: true}
       );
@@ -400,22 +395,24 @@ class CampaignService {
         throw new AppError("Campaign not found", 404);
       }
 
-      if (campaign.agent_id && (updateData.script_raw || updateData.voice_id)) {
-        const agentUpdates: Partial<RetellCreateAgentRequest> = {};
+      // If general_prompt is being updated, update the LLM in Retell
+      if (campaign.agent_id && updateData.general_prompt) {
+        // Get agent details to find LLM ID
+        const { llmDetails } = await agentManagementService.getRetellAgentDetails(campaign.agent_id);
 
-        if (updateData.voice_id) {
-          agentUpdates.voice_id = updateData.voice_id;
+        if (llmDetails?.llm_id) {
+          await agentManagementService.updateLLMPrompt(llmDetails.llm_id, updateData.general_prompt);
         }
-        if (updateData.script_raw) {
-          agentUpdates.system_prompt = updateData.script_raw;
-        }
-
-        await this.retellService.updateAgent(campaign.agent_id, agentUpdates);
       }
+
+      // Only update the fields we store in MongoDB (exclude general_prompt)
+      const mongoUpdateData: Partial<ICampaign> = {};
+      if (updateData.name) mongoUpdateData.name = updateData.name;
+      if (updateData.status) mongoUpdateData.status = updateData.status;
 
       const updatedCampaign = await Campaign.findOneAndUpdate(
         {campaignId, clientId},
-        {$set: updateData},
+        {$set: mongoUpdateData},
         {new: true, runValidators: true}
       );
 

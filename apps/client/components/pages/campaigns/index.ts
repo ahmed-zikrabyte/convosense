@@ -1,8 +1,5 @@
 export { CampaignForm } from "./campaign-form";
-export { BasicInfoForm } from "./basic-info-form";
-export { KnowledgeBaseForm } from "./knowledge-base-form";
-export { VoiceSettingsForm } from "./voice-settings-form";
+export { AgentSelectionForm } from "./agent-selection-form";
+export { GeneralPromptForm } from "./general-prompt-form";
 
 export * from "./types";
-export * from "./constants";
-export * from "./utils";

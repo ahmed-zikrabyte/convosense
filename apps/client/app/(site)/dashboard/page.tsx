@@ -26,10 +26,8 @@ import { cn } from "@workspace/ui/lib/utils";
 interface DashboardMetrics {
   campaigns: {
     total: number;
-    active: number;
     draft: number;
-    paused: number;
-    completed: number;
+    published: number;
   };
   calls: {
     totalCalls: number;
@@ -70,10 +68,8 @@ const Dashboard = () => {
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     campaigns: {
       total: 0,
-      active: 0,
       draft: 0,
-      paused: 0,
-      completed: 0,
+      published: 0,
     },
     calls: {
       totalCalls: 1247,
@@ -219,7 +215,8 @@ const Dashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold">{metrics.campaigns.total}</div>
             <p className="text-xs text-muted-foreground">
-              <span className="text-green-600">{metrics.campaigns.active} active</span>
+              <span className="text-green-600">{metrics.campaigns.published} published</span> •
+              <span className="text-gray-600">{metrics.campaigns.draft} draft</span>
             </p>
           </CardContent>
         </Card>
@@ -291,9 +288,9 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-sm">Active</span>
+                <span className="text-sm">Published</span>
               </div>
-              <span className="font-semibold">{metrics.campaigns.active}</span>
+              <span className="font-semibold">{metrics.campaigns.published}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -301,20 +298,6 @@ const Dashboard = () => {
                 <span className="text-sm">Draft</span>
               </div>
               <span className="font-semibold">{metrics.campaigns.draft}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Pause className="w-4 h-4 text-yellow-500" />
-                <span className="text-sm">Paused</span>
-              </div>
-              <span className="font-semibold">{metrics.campaigns.paused}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-blue-500" />
-                <span className="text-sm">Completed</span>
-              </div>
-              <span className="font-semibold">{metrics.campaigns.completed}</span>
             </div>
           </CardContent>
         </Card>
