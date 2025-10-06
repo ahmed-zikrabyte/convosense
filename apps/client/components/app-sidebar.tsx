@@ -41,7 +41,7 @@ export function AppSidebar() {
   const sidebarItems = [
     {
       name: "Dashboard",
-      href: "/dashboard",
+      href: "/",
       icon: LayoutDashboard,
       description: "Overview & Analytics",
     },

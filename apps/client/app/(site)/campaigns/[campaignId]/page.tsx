@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useCampaign, useCampaignOperations } from "@/lib/hooks/use-campaigns";
+import { useCampaignContacts, useCampaignContactOperations } from "@/lib/hooks/use-campaign-contacts";
+import { campaignContactAPI } from "@/lib/api/campaign-contacts";
 import { Button } from "@workspace/ui/components/button";
 import {
   Card,
@@ -10,6 +12,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@workspace/ui/components/table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +44,8 @@ import {
   Archive,
   Calendar,
   MessageSquare,
+  Download,
+  Upload,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, isNil } from "@workspace/ui/lib/utils";
@@ -53,6 +65,7 @@ export default function CampaignDetailPage() {
   const router = useRouter();
   const campaignId = params.campaignId as string;
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const { campaign, loading, error, refetch } = useCampaign(campaignId);
   const {
@@ -62,6 +75,20 @@ export default function CampaignDetailPage() {
     duplicateCampaign,
     publishCampaign,
   } = useCampaignOperations();
+
+  const {
+    contacts,
+    loading: contactsLoading,
+    error: contactsError,
+    pagination,
+    refetch: refetchContacts,
+  } = useCampaignContacts(campaignId, { limit: 10 });
+
+  const {
+    loading: contactOperationsLoading,
+    error: contactOperationsError,
+    deleteContact,
+  } = useCampaignContactOperations();
 
   const handlePublish = async () => {
     if (!campaign) return;
@@ -93,6 +120,38 @@ export default function CampaignDetailPage() {
       router.push("/campaigns");
     }
     setDeleteAlertOpen(false);
+  };
+
+  const handleDownloadTemplate = () => {
+    const link = document.createElement("a");
+    link.href = "/retell-template.csv";
+    link.download = "retell-template.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !campaign) return;
+
+    setIsUploading(true);
+    try {
+      const result = await campaignContactAPI.uploadContacts(campaign.campaignId, file);
+
+      // Refresh the campaign data and contacts to show the new contacts
+      refetch();
+      refetchContacts();
+
+      alert(`CSV uploaded successfully! Imported: ${result.imported}, Duplicates: ${result.duplicates}, Invalid: ${result.invalid}`);
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      alert(`Upload failed: ${error.response?.data?.message || error.message || "Unknown error"}`);
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      event.target.value = "";
+    }
   };
 
 
@@ -255,6 +314,182 @@ export default function CampaignDetailPage() {
                         {campaign.general_prompt}
                       </p>
                     </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* CSV Upload Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Upload className="w-5 h-5" />
+                  <span>Contact List Management</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3">
+                  <Button
+                    onClick={handleDownloadTemplate}
+                    variant="outline"
+                    className="flex items-center space-x-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Template</span>
+                  </Button>
+
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={handleFileUpload}
+                      disabled={isUploading}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                      id="csv-upload"
+                    />
+                    <Button
+                      variant="default"
+                      disabled={isUploading}
+                      className="flex items-center space-x-2 w-full"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span>{isUploading ? "Uploading..." : "Upload CSV"}</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="text-sm text-muted-foreground">
+                  <p>Upload a CSV file with phone numbers and dynamic variables for this campaign.</p>
+                  <p className="mt-1">Required format: phone number, dynamic variable1, dynamic variable2...</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Contacts Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Contact List</span>
+                  {pagination.totalContacts > 0 && (
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {pagination.totalContacts} contacts
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {contactsError && (
+                  <div className="text-red-600 text-sm mb-4">{contactsError}</div>
+                )}
+
+                {contactsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                  </div>
+                ) : contacts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No contacts uploaded yet.</p>
+                    <p className="text-sm mt-2">Upload a CSV file to add contacts to this campaign.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Phone Number</TableHead>
+                          <TableHead>Dynamic Variables</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Call Attempts</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {contacts.map((contact) => (
+                          <TableRow key={contact._id}>
+                            <TableCell className="font-mono">
+                              {contact.phone_number}
+                            </TableCell>
+                            <TableCell>
+                              {Object.keys(contact.dynamic_variables).length > 0 ? (
+                                <div className="space-y-1">
+                                  {Object.entries(contact.dynamic_variables).map(([key, value]) => (
+                                    <div key={key} className="text-sm">
+                                      <span className="font-medium">{key}:</span> {value}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">None</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                className={cn(
+                                  "text-xs",
+                                  contact.call_status === "completed" && "bg-green-100 text-green-800",
+                                  contact.call_status === "failed" && "bg-red-100 text-red-800",
+                                  contact.call_status === "pending" && "bg-gray-100 text-gray-800",
+                                  contact.call_status === "in_progress" && "bg-blue-100 text-blue-800"
+                                )}
+                              >
+                                {contact.call_status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{contact.call_attempts}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  if (confirm("Are you sure you want to delete this contact?")) {
+                                    const success = await deleteContact(campaignId, contact._id);
+                                    if (success) {
+                                      refetchContacts();
+                                    }
+                                  }
+                                }}
+                                disabled={contactOperationsLoading}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+
+                    {pagination.totalPages > 1 && (
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">
+                          Page {pagination.currentPage} of {pagination.totalPages}
+                        </div>
+                        <div className="space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={pagination.currentPage === 1}
+                            onClick={() => {
+                              // Pagination will be implemented with state management
+                              // For now, this is a placeholder
+                            }}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={pagination.currentPage === pagination.totalPages}
+                            onClick={() => {
+                              // Pagination will be implemented with state management
+                              // For now, this is a placeholder
+                            }}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
