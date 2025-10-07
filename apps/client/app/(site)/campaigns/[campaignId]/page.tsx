@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useCampaign, useCampaignOperations } from "@/lib/hooks/use-campaigns";
 import { useCampaignContacts, useCampaignContactOperations } from "@/lib/hooks/use-campaign-contacts";
+import { useBatchCall } from "@/lib/hooks/use-batch-calls";
 import { campaignContactAPI } from "@/lib/api/campaign-contacts";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -66,6 +67,7 @@ export default function CampaignDetailPage() {
   const campaignId = params.campaignId as string;
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [activeBatchCall, setActiveBatchCall] = useState<string | null>(null);
 
   const { campaign, loading, error, refetch } = useCampaign(campaignId);
   const {
@@ -89,6 +91,13 @@ export default function CampaignDetailPage() {
     error: contactOperationsError,
     deleteContact,
   } = useCampaignContactOperations();
+
+  const {
+    loading: batchCallLoading,
+    error: batchCallError,
+    startBatchCall,
+    stopBatchCall,
+  } = useBatchCall();
 
   const handlePublish = async () => {
     if (!campaign) return;
@@ -151,6 +160,43 @@ export default function CampaignDetailPage() {
       setIsUploading(false);
       // Reset file input
       event.target.value = "";
+    }
+  };
+
+  const handleStartCampaign = async () => {
+    if (!campaign) return;
+
+    if (pagination.totalContacts === 0) {
+      alert("No contacts found. Please upload contacts before starting the campaign.");
+      return;
+    }
+
+    try {
+      const result = await startBatchCall(campaign.campaignId);
+      if (result) {
+        setActiveBatchCall(result.batch_call_id);
+        alert(`Campaign started successfully! Batch Call ID: ${result.batch_call_id}`);
+        // Refresh contacts to show updated call statuses
+        refetchContacts();
+      }
+    } catch (error: any) {
+      console.error("Start campaign error:", error);
+    }
+  };
+
+  const handleStopCampaign = async () => {
+    if (!campaign || !activeBatchCall) return;
+
+    try {
+      const success = await stopBatchCall(campaign.campaignId, activeBatchCall);
+      if (success) {
+        setActiveBatchCall(null);
+        alert("Campaign stopped successfully!");
+        // Refresh contacts to show updated call statuses
+        refetchContacts();
+      }
+    } catch (error: any) {
+      console.error("Stop campaign error:", error);
     }
   };
 
@@ -247,6 +293,31 @@ export default function CampaignDetailPage() {
               </Button>
             )}
 
+            {campaign.status === "published" && (
+              <>
+                {!activeBatchCall ? (
+                  <Button
+                    onClick={handleStartCampaign}
+                    disabled={batchCallLoading || pagination.totalContacts === 0}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Start Campaign
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleStopCampaign}
+                    disabled={batchCallLoading}
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                  >
+                    <Pause className="w-4 h-4 mr-2" />
+                    Stop Campaign
+                  </Button>
+                )}
+              </>
+            )}
+
             <Button
               onClick={handleDuplicate}
               variant="outline"
@@ -280,6 +351,15 @@ export default function CampaignDetailPage() {
           <Card className="border-red-200">
             <CardContent className="py-4">
               <div className="text-red-600 text-sm">{operationsError}</div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Show batch call errors */}
+        {batchCallError && (
+          <Card className="border-red-200">
+            <CardContent className="py-4">
+              <div className="text-red-600 text-sm">{batchCallError}</div>
             </CardContent>
           </Card>
         )}
@@ -589,6 +669,31 @@ export default function CampaignDetailPage() {
                     <Play className="w-4 h-4 mr-2" />
                     Publish Campaign
                   </Button>
+                )}
+
+                {campaign.status === "published" && (
+                  <>
+                    {!activeBatchCall ? (
+                      <Button
+                        className="w-full justify-start bg-green-600 hover:bg-green-700"
+                        onClick={handleStartCampaign}
+                        disabled={batchCallLoading || pagination.totalContacts === 0}
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        Start Campaign
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                        onClick={handleStopCampaign}
+                        disabled={batchCallLoading}
+                      >
+                        <Pause className="w-4 h-4 mr-2" />
+                        Stop Campaign
+                      </Button>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

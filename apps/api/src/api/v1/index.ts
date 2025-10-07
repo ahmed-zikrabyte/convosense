@@ -10,6 +10,7 @@ import clientManagementRouter from './routes/admin/client-management.route';
 import phoneNumberManagementRouter from './routes/admin/phone-number-management.route';
 import agentManagementRouter from './routes/admin/agent-management.route';
 import clientAgentRouter from './routes/client/agent.route';
+import batchCallRouter from './routes/client/batch-call.route';
 
 const mainRouter: Router = Router();
 
@@ -29,5 +30,6 @@ mainRouter.use('/client/profile', profileRouter);
 mainRouter.use('/client/campaigns', campaignRouter);
 mainRouter.use('/client/campaigns', campaignContactRouter);
 mainRouter.use('/client/agents', clientAgentRouter);
+mainRouter.use('/client/batch-calls', batchCallRouter);
 
 export default mainRouter;
