@@ -53,6 +53,8 @@ const server = app.listen(config.port, () => {
   console.log(`Server is running on port ${config.port}`);
 });
 
+server.setTimeout(config.timeout);
+
 process.on("unhandledRejection", (err: Error) => {
   console.log("UNHANDLED REJECTION! 💥 Shutting down...");
   console.log(err.name, err.message);

@@ -18,6 +18,7 @@ const config = {
     windowMs: Number(process.env.RATE_LIMITER_WINDOW_MS) || 15 * 60 * 1000,
     maxRequests: Number(process.env.RATE_LIMITER_MAX_REQUESTS) || 100,
   },
+  timeout: Number(process.env.TIMEOUT) || 30000,
 };
 
 const allowedOrigins = [
