@@ -9,6 +9,7 @@ import {
   Clock,
   Copy,
   Edit,
+  FileText,
   Pause,
   Play,
   Trash2,
@@ -126,6 +127,13 @@ export function CampaignHeader({
             )}
           </>
         )}
+
+        <Link href={`/campaigns/${campaign.campaignId}/call-reports`}>
+          <Button variant="outline">
+            <FileText className="w-4 h-4 mr-2" />
+            Call Reports
+          </Button>
+        </Link>
 
         <Button
           onClick={onDuplicate}

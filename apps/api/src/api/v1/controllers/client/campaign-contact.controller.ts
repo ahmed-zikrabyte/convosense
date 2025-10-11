@@ -1,14 +1,8 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import catchAsync from "../../../../utils/catchAsync";
 import campaignContactService from "../../services/client/campaign-contact.service";
 import multer from "multer";
-
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    type: string;
-  };
-}
+import { AuthenticatedRequest } from "../../../../middleware/auth.middleware";
 
 // Configure multer for file uploads
 const upload = multer({

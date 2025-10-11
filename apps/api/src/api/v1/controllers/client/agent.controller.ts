@@ -1,13 +1,7 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import catchAsync from "../../../../utils/catchAsync";
 import clientAgentService from "../../services/client/agent.service";
-
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    type: string;
-  };
-}
+import { AuthenticatedRequest } from "../../../../middleware/auth.middleware";
 
 export const getAssignedAgents = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
   const { id: clientId } = req.user!;

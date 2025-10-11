@@ -34,7 +34,7 @@ export const useCampaigns = (filters: CampaignFilters = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters.status, filters.page, filters.limit, filters.search]);
 
   useEffect(() => {
     fetchCampaigns();

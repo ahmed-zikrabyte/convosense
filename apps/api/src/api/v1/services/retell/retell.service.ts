@@ -185,7 +185,10 @@ export class RetellService {
       return response;
     } catch (error) {
       console.error("Failed to publish agent:", error);
-      console.error("Error details:", error instanceof Error ? error.message : error);
+      console.error(
+        "Error details:",
+        error instanceof Error ? error.message : error
+      );
       throw error;
     }
   }
@@ -200,7 +203,7 @@ export class RetellService {
         version: agent.version,
         last_modification_timestamp: agent.last_modification_timestamp,
         published_version: (agent as any).published_version || "not found",
-        full_agent: agent
+        full_agent: agent,
       });
       return agent.version || 0;
     } catch (error) {
@@ -275,6 +278,16 @@ export class RetellService {
     }
   }
 
+  async getCallDetails(callId: string) {
+    try {
+      const response = await this.client.call.retrieve(callId);
+      return response;
+    } catch (error) {
+      console.error("Failed to get call details:", error);
+      throw error;
+    }
+  }
+
   async listCalls(params?: {limit?: number}) {
     try {
       const response = await this.client.call.list({
@@ -283,6 +296,72 @@ export class RetellService {
       return response;
     } catch (error) {
       console.error("Failed to list calls:", error);
+      throw error;
+    }
+  }
+
+  async listCallsByBatchId(batchCallId: string) {
+    try {
+      console.log(
+        "🔍 [RetellService] Listing calls for batch_call_id:",
+        batchCallId
+      );
+
+      const requestPayload = {
+        filter_criteria: {
+          batch_call_id: [batchCallId],
+        },
+      };
+      console.log(
+        "📤 [RetellService] Request payload:",
+        JSON.stringify(requestPayload, null, 2)
+      );
+
+      const response = await this.client.call.list(requestPayload);
+
+      console.log(
+        "📦 [RetellService] Raw response:",
+        JSON.stringify(response, null, 2)
+      );
+      console.log("🔧 [RetellService] Response type:", typeof response);
+      console.log("🗂️ [RetellService] Response keys:", Object.keys(response));
+      console.log(
+        "📊 [RetellService] Is response an array?",
+        Array.isArray(response)
+      );
+
+      // Try different possible response structures
+      let calls = [];
+      if (Array.isArray(response)) {
+        calls = response;
+        console.log("✅ [RetellService] Response is directly an array");
+      } else if ((response as any).calls) {
+        calls = (response as any).calls;
+        console.log("✅ [RetellService] Found calls in response.calls");
+      } else if ((response as any).data) {
+        calls = (response as any).data;
+        console.log("✅ [RetellService] Found calls in response.data");
+      } else {
+        console.log("❌ [RetellService] No calls found in response structure");
+        calls = [];
+      }
+
+      console.log("📋 [RetellService] Final calls array length:", calls.length);
+
+      if (calls.length > 0) {
+        console.log("📝 [RetellService] Sample call structure:");
+        console.log("   First call keys:", Object.keys(calls[0]));
+        console.log("   First call:", JSON.stringify(calls[0], null, 2));
+      }
+
+      return calls;
+    } catch (error: any) {
+      console.error(
+        "❌ [RetellService] Failed to list calls by batch ID:",
+        error
+      );
+      console.error("❌ [RetellService] Error details:", error?.message);
+      console.error("❌ [RetellService] Error stack:", error?.stack);
       throw error;
     }
   }
@@ -376,7 +455,7 @@ export class RetellService {
     }
   }
 
-  async updateLLM(llmId: string, updateData: { general_prompt?: string }) {
+  async updateLLM(llmId: string, updateData: {general_prompt?: string}) {
     try {
       const response = await this.client.llm.update(llmId, updateData);
       return response;
@@ -395,7 +474,6 @@ export class RetellService {
       throw error;
     }
   }
-
 
   verifyWebhookSignature(
     payload: string,

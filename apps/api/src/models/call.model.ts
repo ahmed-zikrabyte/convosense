@@ -6,33 +6,49 @@ export interface ICall extends Document {
   _id: string;
   call_id: string;
   campaign_id: string;
-  lead_id: string;
+  lead_id?: string;
+  campaign_contact_id?: string; // Reference to campaign contact
   agent_id: string;
+  agent_name?: string;
   from: string; // E.164 format phone number
   to: string; // E.164 format phone number
   start_ts?: Date;
   end_ts?: Date;
+  duration_ms: number; // Duration in milliseconds as returned by Retell
   duration_seconds: number;
   call_cost: number; // Cost charged to client
   retell_cost: number; // Actual cost from RetellAI
   client_cost: number; // Same as call_cost for consistency
   transcript?: string;
+  transcript_object?: any[]; // Detailed transcript with timing
   call_analysis: {
     sentiment?: "positive" | "negative" | "neutral";
     keywords?: string[];
     summary?: string;
     outcome?: "completed" | "voicemail" | "no_answer" | "busy" | "failed" | "hung_up";
     conversion_score?: number; // 0-100
+    in_voicemail?: boolean;
+    call_successful?: boolean;
+    user_sentiment?: string;
+    custom_analysis_data?: any;
   };
   status: "initiated" | "ringing" | "answered" | "in_progress" | "completed" | "failed" | "no_answer" | "busy" | "voicemail";
   retell_call_id?: string;
+  batch_call_id?: string;
+  direction: "inbound" | "outbound";
   metadata: {
     attempt_number: number;
     user_agent?: string;
     disconnect_reason?: string;
     quality_score?: number; // 1-5
     recording_url?: string;
+    recording_multi_channel_url?: string;
+    public_log_url?: string;
+    telephony_session_id?: any;
+    llm_token_usage?: any;
+    latency?: any;
   };
+  retell_llm_dynamic_variables?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,9 +57,11 @@ const callSchema = new Schema<ICall>(
   {
     call_id: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
       index: true,
+      default: undefined, // Explicitly set to undefined instead of null
     },
     campaign_id: {
       type: String,
@@ -53,14 +71,21 @@ const callSchema = new Schema<ICall>(
     },
     lead_id: {
       type: String,
-      required: true,
       ref: LEAD_DB_REF,
+      index: true,
+    },
+    campaign_contact_id: {
+      type: String,
+      ref: "CampaignContact",
       index: true,
     },
     agent_id: {
       type: String,
       required: [true, "Agent ID is required"],
       index: true,
+    },
+    agent_name: {
+      type: String,
     },
     from: {
       type: String,
@@ -78,6 +103,11 @@ const callSchema = new Schema<ICall>(
     },
     end_ts: {
       type: Date,
+    },
+    duration_ms: {
+      type: Number,
+      default: 0,
+      min: [0, "Duration cannot be negative"],
     },
     duration_seconds: {
       type: Number,
@@ -102,6 +132,9 @@ const callSchema = new Schema<ICall>(
     transcript: {
       type: String,
     },
+    transcript_object: {
+      type: Schema.Types.Mixed,
+    },
     call_analysis: {
       sentiment: {
         type: String,
@@ -123,6 +156,18 @@ const callSchema = new Schema<ICall>(
         min: [0, "Conversion score cannot be negative"],
         max: [100, "Conversion score cannot exceed 100"],
       },
+      in_voicemail: {
+        type: Boolean,
+      },
+      call_successful: {
+        type: Boolean,
+      },
+      user_sentiment: {
+        type: String,
+      },
+      custom_analysis_data: {
+        type: Schema.Types.Mixed,
+      },
     },
     status: {
       type: String,
@@ -134,11 +179,21 @@ const callSchema = new Schema<ICall>(
       type: String,
       index: true,
     },
+    batch_call_id: {
+      type: String,
+      index: true,
+    },
+    direction: {
+      type: String,
+      enum: ["inbound", "outbound"],
+      default: "outbound",
+    },
     metadata: {
       attempt_number: {
         type: Number,
         required: true,
         min: [1, "Attempt number must be at least 1"],
+        default: 1,
       },
       user_agent: {
         type: String,
@@ -154,6 +209,24 @@ const callSchema = new Schema<ICall>(
       recording_url: {
         type: String,
       },
+      recording_multi_channel_url: {
+        type: String,
+      },
+      public_log_url: {
+        type: String,
+      },
+      telephony_identifier: {
+        type: Schema.Types.Mixed,
+      },
+      llm_token_usage: {
+        type: Schema.Types.Mixed,
+      },
+      latency: {
+        type: Schema.Types.Mixed,
+      },
+    },
+    retell_llm_dynamic_variables: {
+      type: Schema.Types.Mixed,
     },
   },
   {
@@ -163,11 +236,13 @@ const callSchema = new Schema<ICall>(
 
 // Compound indexes for efficient queries
 callSchema.index({ campaign_id: 1, status: 1 });
+callSchema.index({ campaign_contact_id: 1, "metadata.attempt_number": 1 });
 callSchema.index({ lead_id: 1, "metadata.attempt_number": 1 });
 callSchema.index({ start_ts: -1 });
 callSchema.index({ end_ts: -1 });
 callSchema.index({ status: 1, createdAt: -1 });
 callSchema.index({ "call_analysis.outcome": 1 });
+callSchema.index({ batch_call_id: 1 });
 
 // Generate call_id before saving
 callSchema.pre("save", async function (next) {

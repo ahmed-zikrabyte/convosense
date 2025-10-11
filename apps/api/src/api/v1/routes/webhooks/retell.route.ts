@@ -100,33 +100,63 @@ async function processRetellWebhook(
 }
 
 async function handleCallStarted(payload: RetellWebhookPayload) {
-  const existingCall = await Call.findOne({call_id: payload.call_id});
+  let existingCall = await Call.findOne({retell_call_id: payload.call_id});
+
+  if (!existingCall) {
+    // Try to find by phone numbers and recent timestamp for calls from batch
+    existingCall = await Call.findOne({
+      to: payload.to_number,
+      from: payload.from_number,
+      agent_id: payload.agent_id,
+      status: "initiated",
+      createdAt: { $gte: new Date(Date.now() - 2 * 60 * 60 * 1000) } // Within last 2 hours
+    }).sort({ createdAt: -1 });
+  }
 
   if (existingCall) {
     existingCall.status = "in_progress";
+    existingCall.retell_call_id = payload.call_id;
     existingCall.start_ts = new Date(payload.start_timestamp);
     await existingCall.save();
   } else {
-    // Create new call record if it doesn't exist
+    // Create new call record if it doesn't exist (for calls not from our batch system)
     const newCall = new Call({
-      call_id: payload.call_id,
+      retell_call_id: payload.call_id,
       agent_id: payload.agent_id,
       from: payload.from_number,
       to: payload.to_number,
       start_ts: new Date(payload.start_timestamp),
       status: "in_progress",
+      direction: "outbound",
+      metadata: {
+        attempt_number: 1,
+      },
     });
     await newCall.save();
   }
 }
 
 async function handleCallEnded(payload: RetellWebhookPayload) {
-  const call = await Call.findOne({call_id: payload.call_id});
+  let call = await Call.findOne({retell_call_id: payload.call_id});
+
+  if (!call) {
+    // If call not found by retell_call_id, try to find by phone numbers and recent timestamp
+    call = await Call.findOne({
+      to: payload.to_number,
+      from: payload.from_number,
+      agent_id: payload.agent_id,
+      status: { $in: ["initiated", "in_progress", "ringing", "answered"] },
+      createdAt: { $gte: new Date(Date.now() - 2 * 60 * 60 * 1000) } // Within last 2 hours
+    }).sort({ createdAt: -1 });
+  }
 
   if (call) {
+    // Fetch detailed call data from Retell
+    const detailedCallData = await retellService.getCallDetails(payload.call_id);
+
     // Map RetellAI status to our call status enum
     const statusMap: { [key: string]: string } = {
-      "call_ended": "completed",
+      "ended": "completed",
       "call_failed": "failed",
       "no_answer": "no_answer",
       "busy": "busy",
@@ -134,15 +164,54 @@ async function handleCallEnded(payload: RetellWebhookPayload) {
       "answered": "completed"
     };
 
-    const mappedStatus = statusMap[payload.call_status] || "completed";
+    const mappedStatus = statusMap[detailedCallData.call_status] || "completed";
     call.status = mappedStatus as any;
+    call.retell_call_id = payload.call_id;
 
-    call.end_ts = payload.end_timestamp
-      ? new Date(payload.end_timestamp)
-      : new Date();
-    call.duration_seconds = payload.call_duration || 0;
-    call.call_cost = payload.call_cost || 0;
-    call.retell_cost = payload.call_cost || 0;
+    // Update call with detailed data from Retell API
+    if (detailedCallData.start_timestamp) {
+      call.start_ts = new Date(detailedCallData.start_timestamp);
+    }
+    if (detailedCallData.end_timestamp) {
+      call.end_ts = new Date(detailedCallData.end_timestamp);
+    }
+
+    call.duration_ms = detailedCallData.duration_ms || 0;
+    call.duration_seconds = Math.floor((detailedCallData.duration_ms || 0) / 1000);
+    call.transcript = detailedCallData.transcript || "";
+    call.transcript_object = detailedCallData.transcript_object || [];
+
+    // Store call analysis
+    if (detailedCallData.call_analysis) {
+      call.call_analysis = {
+        ...call.call_analysis,
+        sentiment: detailedCallData.call_analysis.user_sentiment?.toLowerCase() as "positive" | "negative" | "neutral" | undefined,
+        summary: detailedCallData.call_analysis.call_summary,
+        in_voicemail: detailedCallData.call_analysis.in_voicemail,
+        call_successful: detailedCallData.call_analysis.call_successful,
+        user_sentiment: detailedCallData.call_analysis.user_sentiment,
+        custom_analysis_data: detailedCallData.call_analysis.custom_analysis_data,
+      };
+    }
+
+    // Store costs
+    if (detailedCallData.call_cost) {
+      call.retell_cost = detailedCallData.call_cost.combined_cost || 0;
+      call.call_cost = call.retell_cost * 1.2; // Add 20% markup
+      call.client_cost = call.call_cost;
+    }
+
+    // Store metadata
+    call.metadata = {
+      ...call.metadata,
+      recording_url: detailedCallData.recording_url,
+      recording_multi_channel_url: detailedCallData.recording_multi_channel_url,
+      public_log_url: detailedCallData.public_log_url,
+      disconnect_reason: detailedCallData.disconnection_reason,
+      telephony_session_id: (detailedCallData as any).telephony_session_id || null,
+      llm_token_usage: detailedCallData.llm_token_usage,
+      latency: detailedCallData.latency,
+    };
 
     await call.save();
   }
